@@ -111,6 +111,21 @@ bool encoder_init(volatile mc_configuration *conf) {
 		res = true;
 	} break;
 
+	
+	case SENSOR_PORT_MODE_ICMHM_SPI_HW: {
+		SENSOR_PORT_5V();
+
+		if (!enc_icmhm_init(&encoder_cfg_icmhm)) {
+			m_encoder_type_now = ENCODER_TYPE_NONE;
+			return false;
+		}
+
+		m_encoder_type_now = ENCODER_TYPE_ICMHM;
+		timer_start(routine_rate_1k);
+
+		res = true;
+	} break;
+	
 	// ssc (3 wire) sw spi on hall pins
 	case SENSOR_PORT_MODE_TLE5012_SSC_SW: {
 		SENSOR_PORT_5V();
@@ -308,6 +323,8 @@ void encoder_deinit(void) {
 		enc_as504x_deinit(&encoder_cfg_as504x);
 	} else if (m_encoder_type_now == ENCODER_TYPE_MT6816) {
 		enc_mt6816_deinit(&encoder_cfg_mt6816);
+	} else if (m_encoder_type_now == ENCODER_TYPE_ICMHM) {
+		enc_icmhm_deinit(&encoder_cfg_icmhm);
 	} else if (m_encoder_type_now == ENCODER_TYPE_TLE5012) {
 		enc_tle5012_deinit(&encoder_cfg_tle5012);
 	} else if (m_encoder_type_now == ENCODER_TYPE_AD2S1205_SPI) {
@@ -356,6 +373,8 @@ float encoder_read_deg(void) {
 		return AS504x_LAST_ANGLE(&encoder_cfg_as504x);
 	} else if (m_encoder_type_now == ENCODER_TYPE_MT6816) {
 		return MT6816_LAST_ANGLE(&encoder_cfg_mt6816);
+	} else if (m_encoder_type_now == ENCODER_TYPE_ICMHM) {
+		return ICMHM_LAST_ANGLE(&encoder_cfg_icmhm);
 	} else if (m_encoder_type_now == ENCODER_TYPE_TLE5012) {
 		return TLE5012_LAST_ANGLE(&encoder_cfg_tle5012);
 	} else if (m_encoder_type_now == ENCODER_TYPE_AD2S1205_SPI) {
@@ -391,6 +410,9 @@ float encoder_read_deg_multiturn(void) {
 		ts_mt += 5000;
 
 		return encoder_read_deg() / 10000.0 + (360 * ts_mt) / 10000.0;
+	} else if (m_encoder_type_now == ENCODER_TYPE_ICMHM) {
+		float ts_mt = (float)enc_icmhm_get_abm(&encoder_cfg_icmhm);
+		return encoder_read_deg() + (360 * ts_mt);
 	} else {
 		return encoder_read_deg();
 	}
@@ -411,6 +433,8 @@ bool encoder_index_found(void) {
 void encoder_reset_multiturn(void) {
 	if (m_encoder_type_now == ENCODER_TYPE_TS5700N8501) {
 		return enc_ts5700n8501_reset_multiturn(&encoder_cfg_TS5700N8501);
+	} else if (m_encoder_type_now == ENCODER_TYPE_ICMHM) {
+		return enc_icmhm_reset_multiturn(&encoder_cfg_icmhm);
 	}
 }
 
@@ -429,6 +453,9 @@ float encoder_get_error_rate(void) {
 		break;
 	case ENCODER_TYPE_MT6816:
 		res = encoder_cfg_mt6816.state.encoder_no_magnet_error_rate;
+		break;
+	case ENCODER_TYPE_ICMHM:
+		res = encoder_cfg_icmhm.state.encoder_no_magnet_error_rate;
 		break;
 	case ENCODER_TYPE_TLE5012:
 		res = encoder_cfg_tle5012.state.spi_error_rate;
@@ -499,7 +526,12 @@ void encoder_check_faults(volatile mc_configuration *m_conf, bool is_second_moto
 				mc_interface_fault_stop(FAULT_CODE_ENCODER_NO_MAGNET, is_second_motor, false);
 			}
 			break;
-		
+		case SENSOR_PORT_MODE_ICMHM_SPI_HW:
+			if (encoder_cfg_icmhm.state.encoder_no_magnet_error_rate > 0.05) {
+				mc_interface_fault_stop(FAULT_CODE_ENCODER_NO_MAGNET, is_second_motor, false);
+			}
+			break;
+
 		case SENSOR_PORT_MODE_TLE5012_SSC_HW:
 		case SENSOR_PORT_MODE_TLE5012_SSC_SW:
 			if (encoder_cfg_tle5012.state.spi_error_rate > 0.10) {
@@ -618,6 +650,12 @@ static void terminal_encoder(int argc, const char **argv) {
 		commands_printf("Low flux error (no magnet): errors: %d, error rate: %.3f %%",
 				encoder_cfg_mt6816.state.encoder_no_magnet_error_cnt,
 				(double)(encoder_cfg_mt6816.state.encoder_no_magnet_error_rate * 100.0));
+		break;
+
+	case SENSOR_PORT_MODE_ICMHM_SPI_HW:
+			commands_printf("ICMHM multi-turn: %d, angle: %f.",
+					enc_icmhm_get_abm(&encoder_cfg_icmhm),
+					encoder_read_deg());
 		break;
 
 	case SENSOR_PORT_MODE_TLE5012_SSC_HW:
@@ -751,6 +789,10 @@ static THD_FUNCTION(routine_thread, arg) {
 
 		case ENCODER_TYPE_MT6816:
 			enc_mt6816_routine(&encoder_cfg_mt6816);
+			break;
+
+		case ENCODER_TYPE_ICMHM:
+			enc_icmhm_routine(&encoder_cfg_icmhm);
 			break;
 
 		case ENCODER_TYPE_TLE5012:

@@ -218,6 +218,7 @@ void mc_interface_init(void) {
 #endif
 	mc_interface_select_motor_thread(motor_old);
 
+	m_motor_1.m_conf.m_sensor_port_mode = SENSOR_PORT_MODE_ICMHM_SPI_HW;
 	encoder_init(&motor_now()->m_conf);
 
 	// Initialize selected implementation
@@ -2390,7 +2391,7 @@ static void update_override_limits(volatile motor_if_state_t *motor, volatile mc
 		lo_max_duty = l_current_max_tmp;
 	} else {
 		lo_max_duty = utils_map(duty_now_abs, (conf->l_duty_start * conf->l_max_duty),
-				conf->l_max_duty, l_current_max_tmp, conf->cc_min_current * 5.0);
+				conf->l_max_duty, l_current_max_tmp, 0.0);
 	}
 
 	float lo_max = utils_min_abs(lo_max_mos, lo_max_mot);
