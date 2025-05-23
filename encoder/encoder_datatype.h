@@ -30,6 +30,7 @@
 typedef enum {
 	ENCODER_TYPE_NONE = 0,
 	ENCODER_TYPE_AS504x,
+	ENCODER_TYPE_ICMHM,
 	ENCODER_TYPE_MT6816,
 	ENCODER_TYPE_TLE5012,
 	ENCODER_TYPE_AD2S1205_SPI,
@@ -95,6 +96,34 @@ typedef struct {
 
 	MT6816_state state;
 } MT6816_config_t;
+
+typedef struct {
+	float spi_error_rate;
+	float encoder_no_magnet_error_rate;
+	uint32_t encoder_no_magnet_error_cnt;
+	float last_enc_angle;
+	uint32_t spi_error_cnt;
+	uint32_t spi_val;
+	uint32_t last_update_time;
+	uint32_t mt_val;
+	bool reset_multiturn;
+} ICMHM_state;
+
+typedef struct {
+	SPIDriver *spi_dev;
+	SPIConfig hw_spi_cfg;
+	uint8_t spi_af;
+	stm32_gpio_t *nss_gpio;
+	int nss_pin;
+	stm32_gpio_t *sck_gpio;
+	int sck_pin;
+	stm32_gpio_t *mosi_gpio;
+	int mosi_pin;
+	stm32_gpio_t *miso_gpio;
+	int miso_pin;
+
+	ICMHM_state state;
+} ICMHM_config_t;
 
 typedef struct {
 	float spi_error_rate;

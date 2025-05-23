@@ -226,6 +226,7 @@ void mc_interface_init(void) {
 #endif
 	mc_interface_select_motor_thread(motor_old);
 
+	m_motor_1.m_conf.m_sensor_port_mode = SENSOR_PORT_MODE_ICMHM_SPI_HW;
 	encoder_init(&motor_now()->m_conf);
 
 	// Initialize selected implementation
