@@ -418,6 +418,7 @@ float encoder_read_deg_multiturn(void) {
 	} else if (m_encoder_type_now == ENCODER_TYPE_ICMHM) {
 		float ts_mt = (float)enc_icmhm_get_abm(&encoder_cfg_icmhm);
 		return encoder_read_deg() + (360 * ts_mt);
+	}
 	else {
 		return encoder_read_deg();
 	}
