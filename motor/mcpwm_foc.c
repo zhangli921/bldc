@@ -778,7 +778,7 @@ void mcpwm_foc_set_pid_speed(float rpm) {
  */
 void mcpwm_foc_set_pid_pos(float pos) {
 	get_motor_now()->m_control_mode = CONTROL_MODE_POS;
-	get_motor_now()->m_pos_pid_set = pos;
+	get_motor_now()->m_pos_pid_set = pos;	
 
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
@@ -2789,6 +2789,7 @@ void mcpwm_foc_print_state(void) {
 	commands_printf("vd_int:    %.2f", (double)get_motor_now()->m_motor_state.vd_int);
 	commands_printf("vq_int:    %.2f", (double)get_motor_now()->m_motor_state.vq_int);
 	commands_printf("off_delay: %.2f", (double)get_motor_now()->m_current_off_delay);
+	commands_printf("pos now: %.2f, pose set: %.2f.", (double)get_motor_now()->m_pos_pid_now, (double)get_motor_now()->m_pos_pid_set);  //zhang li
 }
 
 float mcpwm_foc_get_last_adc_isr_duration(void) {
@@ -3626,16 +3627,17 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	// Track position control angle
 	float angle_now = 0.0;
 	if (encoder_is_configured()) {
-		if (conf_now->m_sensor_port_mode == SENSOR_PORT_MODE_TS5700N8501_MULTITURN) {
-			angle_now = encoder_read_deg_multiturn();
-		} else {
-			angle_now = enc_ang;
-		}
+		angle_now = encoder_read_deg_multiturn();
+		// if (conf_now->m_sensor_port_mode == SENSOR_PORT_MODE_TS5700N8501_MULTITURN || conf_now->m_sensor_port_mode == SENSOR_PORT_MODE_ICMHM_SPI_HW || conf_now->m_sensor_port_mode == SENSOR_PORT_MODE_MT6816_SPI_HW) {
+		// 	angle_now = encoder_read_deg_multiturn();
+		// } else {
+		// 	angle_now = enc_ang;
+		// }
 	} else {
 		angle_now = RAD2DEG_f(motor_now->m_motor_state.phase);
 	}
 
-	utils_norm_angle(&angle_now);
+	//utils_norm_angle(&angle_now);  //多圈编码器，不需要调整角度到0-360
 
 	if (conf_now->p_pid_ang_div > 0.98 && conf_now->p_pid_ang_div < 1.02) {
 		motor_now->m_pos_pid_now = angle_now;
