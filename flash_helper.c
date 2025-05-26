@@ -1,5 +1,5 @@
 /*
-	Copyright 2016 - 2022 Benjamin Vedder	benjamin@vedder.se
+	Copyright 2016 - 2021 Benjamin Vedder	benjamin@vedder.se
 
 	This file is part of the VESC firmware.
 
@@ -17,24 +17,17 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
     */
 
-#pragma GCC push_options
-#pragma GCC optimize ("Os")
-
 #include "flash_helper.h"
 #include "ch.h"
 #include "hal.h"
 #include "stm32f4xx_conf.h"
-#include "utils_sys.h"
+#include "utils.h"
 #include "mc_interface.h"
 #include "timeout.h"
 #include "hw.h"
 #include "crc.h"
 #include "buffer.h"
 #include <string.h>
-
-#ifdef USE_LISPBM
-#include "lispif.h"
-#endif
 
 /*
  * Defines
@@ -44,11 +37,9 @@
 #define APP_BASE								0
 #define NEW_APP_BASE							8
 #define NEW_APP_SECTORS							3
-#define APP_MAX_SIZE							(1024 * 128 * 4 - 8) // Note that the bootloader needs 8 extra bytes
-#define QMLUI_BASE								9
-#define LISP_BASE								10
+#define APP_MAX_SIZE							(1024 * 128 * 3 - 8) // Note that the bootloader needs 8 extra bytes
+#define QMLUI_BASE								7
 #define QMLUI_MAX_SIZE							(1024 * 128 - 8)
-#define LISP_MAX_SIZE							(1024 * 128 - 8)
 
 // Base address of the Flash sectors
 #define ADDR_FLASH_SECTOR_0    					((uint32_t)0x08000000) // Base @ of Sector 0, 16 Kbytes
@@ -75,8 +66,6 @@
 #define	APP_CRC_WAS_CALCULATED_FLAG_ADDRESS		((uint32_t*)(ADDR_FLASH_SECTOR_0 + APP_MAX_SIZE - 8))
 #define APP_CRC_ADDRESS							((uint32_t*)(ADDR_FLASH_SECTOR_0 + APP_MAX_SIZE - 4))
 
-#define ERASE_VOLTAGE_RANGE						(uint8_t)((PWR->CSR & PWR_CSR_PVDO) ? VoltageRange_2 : VoltageRange_3)
-
 typedef struct {
 	uint32_t crc_flag;
 	uint32_t crc;
@@ -88,16 +77,11 @@ const crc_info_t __attribute__((section (".crcinfo"))) crc_info = {0xFFFFFFFF, 0
 // Private functions
 static uint16_t erase_sector(uint32_t sector);
 static uint16_t write_data(uint32_t base, uint8_t *data, uint32_t len);
-static void qmlui_check(int ind);
+static void qmlui_check(void);
 
 // Private variables
-typedef struct {
-	bool check_done;
-	bool ok;
-} _code_checks;
-
-static _code_checks code_checks[2] = {0};
-static int code_sectors[2] = {QMLUI_BASE, LISP_BASE};
+static bool qmlui_check_done = false;
+static bool qmlui_ok = false;
 
 // Private constants
 static const uint32_t flash_addr[FLASH_SECTORS] = {
@@ -130,20 +114,16 @@ static const uint16_t flash_sector[FLASH_SECTORS] = {
 };
 
 uint16_t flash_helper_erase_new_app(uint32_t new_app_size) {
-#ifdef USE_LISPBM
-	lispif_restart(false, false, false);
-#endif
-
 	FLASH_Unlock();
 	FLASH_ClearFlag(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR |
 			FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
 
 	new_app_size += flash_addr[NEW_APP_BASE];
 
+	mc_interface_release_motor_override();
 	mc_interface_ignore_input_both(5000);
-	mc_interface_release_motor_override_both();
 
-	if (!mc_interface_wait_for_motor_release_both(3.0)) {
+	if (!mc_interface_wait_for_motor_release(3.0)) {
 		return 100;
 	}
 
@@ -152,7 +132,7 @@ uint16_t flash_helper_erase_new_app(uint32_t new_app_size) {
 
 	for (int i = 0;i < NEW_APP_SECTORS;i++) {
 		if (new_app_size > flash_addr[NEW_APP_BASE + i]) {
-			uint16_t res = FLASH_EraseSector(flash_sector[NEW_APP_BASE + i], ERASE_VOLTAGE_RANGE);
+			uint16_t res = FLASH_EraseSector(flash_sector[NEW_APP_BASE + i], VoltageRange_3);
 			if (res != FLASH_COMPLETE) {
 				FLASH_Lock();
 				timeout_configure_IWDT();
@@ -167,7 +147,7 @@ uint16_t flash_helper_erase_new_app(uint32_t new_app_size) {
 
 	FLASH_Lock();
 	timeout_configure_IWDT();
-	mc_interface_ignore_input_both(100);
+	mc_interface_ignore_input_both(5000);
 	utils_sys_unlock_cnt();
 
 	return FLASH_COMPLETE;
@@ -181,57 +161,47 @@ uint16_t flash_helper_write_new_app_data(uint32_t offset, uint8_t *data, uint32_
 	return write_data(flash_addr[NEW_APP_BASE] + offset, data, len);
 }
 
-uint16_t flash_helper_erase_code(int ind) {
-#ifdef USE_LISPBM
-	if (ind == CODE_IND_LISP) {
-		lispif_stop_lib();
-	}
-#endif
-
-	code_checks[ind].check_done = false;
-	code_checks[ind].ok = false;
-	return erase_sector(flash_sector[code_sectors[ind]]);
+uint16_t flash_helper_erase_qmlui(void) {
+	qmlui_check_done = false;
+	qmlui_ok = false;
+	return erase_sector(flash_sector[QMLUI_BASE]);
 }
 
-uint16_t flash_helper_write_code(int ind, uint32_t offset, uint8_t *data, uint32_t len) {
-	code_checks[ind].check_done = false;
-	code_checks[ind].ok = false;
-	return write_data(flash_addr[code_sectors[ind]] + offset, data, len);
+uint16_t flash_helper_write_qmlui(uint32_t offset, uint8_t *data, uint32_t len) {
+	qmlui_check_done = false;
+	qmlui_ok = false;
+	return write_data(flash_addr[QMLUI_BASE] + offset, data, len);
 }
 
-uint8_t* flash_helper_code_data(int ind) {
-	qmlui_check(ind);
+uint8_t *flash_helper_qmlui_data(void) {
+	qmlui_check();
 
-	if (code_checks[ind].check_done && code_checks[ind].ok) {
-		return (uint8_t*)(flash_addr[code_sectors[ind]]) + 8;
+	if (qmlui_check_done && qmlui_ok) {
+		return (uint8_t*)(flash_addr[QMLUI_BASE]) + 8;
 	} else {
 		return 0;
 	}
 }
 
-uint8_t* flash_helper_code_data_raw(int ind) {
-	return (uint8_t*)flash_addr[code_sectors[ind]];
-}
+uint32_t flash_helper_qmlui_size(void) {
+	qmlui_check();
 
-uint32_t flash_helper_code_size(int ind) {
-	qmlui_check(ind);
-
-	if (code_checks[ind].check_done && code_checks[ind].ok) {
-		uint8_t *base = (uint8_t*)(flash_addr[code_sectors[ind]]);
-		int32_t index = 0;
-		return buffer_get_uint32(base, &index);
+	if (qmlui_check_done && qmlui_ok) {
+		uint8_t *qmlui_base = (uint8_t*)(flash_addr[QMLUI_BASE]);
+		int32_t ind = 0;
+		return buffer_get_uint32(qmlui_base, &ind);
 	} else {
 		return 0;
 	}
 }
 
-uint16_t flash_helper_code_flags(int ind) {
-	qmlui_check(ind);
+uint16_t flash_helper_qmlui_flags(void) {
+	qmlui_check();
 
-	if (code_checks[ind].check_done && code_checks[ind].ok) {
-		uint8_t *base = (uint8_t*)(flash_addr[code_sectors[ind]]);
-		int32_t index = 6;
-		return buffer_get_uint16(base, &index);
+	if (qmlui_check_done && qmlui_ok) {
+		uint8_t *qmlui_base = (uint8_t*)(flash_addr[QMLUI_BASE]);
+		int32_t ind = 6;
+		return buffer_get_uint16(qmlui_base, &ind);
 	} else {
 		return 0;
 	}
@@ -398,23 +368,32 @@ static uint16_t erase_sector(uint32_t sector) {
 	FLASH_ClearFlag(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR |
 			FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
 
+	mc_interface_release_motor_override();
 	mc_interface_ignore_input_both(5000);
-	mc_interface_release_motor_override_both();
 
-	if (!mc_interface_wait_for_motor_release_both(3.0)) {
+	if (!mc_interface_wait_for_motor_release(3.0)) {
 		return 100;
 	}
 
 	utils_sys_lock_cnt();
 	timeout_configure_IWDT_slowest();
 
-	uint16_t res = FLASH_EraseSector(sector, ERASE_VOLTAGE_RANGE);
+	uint16_t res = FLASH_EraseSector(sector, VoltageRange_3);
+	if (res != FLASH_COMPLETE) {
+		FLASH_Lock();
+		timeout_configure_IWDT();
+		mc_interface_ignore_input_both(5000);
+		utils_sys_unlock_cnt();
+
+		return res;
+	}
 
 	FLASH_Lock();
 	timeout_configure_IWDT();
-	mc_interface_ignore_input_both(100);
+	mc_interface_ignore_input_both(5000);
 	utils_sys_unlock_cnt();
-	return res;
+
+	return FLASH_COMPLETE;
 }
 
 static uint16_t write_data(uint32_t base, uint8_t *data, uint32_t len) {
@@ -422,10 +401,10 @@ static uint16_t write_data(uint32_t base, uint8_t *data, uint32_t len) {
 	FLASH_ClearFlag(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR |
 			FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
 
+	mc_interface_release_motor_override();
 	mc_interface_ignore_input_both(5000);
-	mc_interface_release_motor_override_both();
 
-	if (!mc_interface_wait_for_motor_release_both(3.0)) {
+	if (!mc_interface_wait_for_motor_release(3.0)) {
 		return 100;
 	}
 
@@ -439,80 +418,35 @@ static uint16_t write_data(uint32_t base, uint8_t *data, uint32_t len) {
 			timeout_configure_IWDT();
 			mc_interface_ignore_input_both(5000);
 			utils_sys_unlock_cnt();
+
 			return res;
 		}
 	}
 
 	FLASH_Lock();
 	timeout_configure_IWDT();
-	mc_interface_ignore_input_both(100);
+	mc_interface_ignore_input_both(5000);
 	utils_sys_unlock_cnt();
 
 	return FLASH_COMPLETE;
 }
 
-static void qmlui_check(int ind) {
-	if (code_checks[ind].check_done) {
+static void qmlui_check(void) {
+	if (qmlui_check_done) {
 		return;
 	}
 
-	uint8_t *base = (uint8_t*)(flash_addr[code_sectors[ind]]);
-	int32_t index = 0;
-	uint32_t qmlui_len = buffer_get_uint32(base, &index);
-	uint16_t qmlui_crc = buffer_get_uint16(base, &index);
+	uint8_t *qmlui_base = (uint8_t*)(flash_addr[QMLUI_BASE]);
+	int32_t ind = 0;
+	uint32_t qmlui_len = buffer_get_uint32(qmlui_base, &ind);
+	uint16_t qmlui_crc = buffer_get_uint16(qmlui_base, &ind);
 
 	if (qmlui_len <= QMLUI_MAX_SIZE) {
-		uint16_t crc_calc = crc16(base + index, qmlui_len + 2); // CRC includes the 2 byte flags
-		code_checks[ind].ok = crc_calc == qmlui_crc;
+		uint16_t crc_calc = crc16(qmlui_base + ind, qmlui_len + 2); // CRC includes the 2 byte flags
+		qmlui_ok = crc_calc == qmlui_crc;
 	} else {
-		code_checks[ind].ok = false;
+		qmlui_ok = false;
 	}
 
-	code_checks[ind].check_done = true;
+	qmlui_check_done = true;
 }
-
-#define VESC_IF_NVM_REGION_SIZE	(ADDR_FLASH_SECTOR_9 - ADDR_FLASH_SECTOR_8)
-
-/**
-  * @brief  Reads len bytes to v from nvm at address
-  * @param	v: array of bytes to which the result will be written
-  * @param	len: number of bytes to read
-  * @param	address: address of the first byte
-  * @retval Boolean indicating success or failure
-  */
-bool flash_helper_read_nvm(uint8_t *v, unsigned int len, unsigned int address) {
-	if ((address + len) > VESC_IF_NVM_REGION_SIZE) {
-		return false;
-	}
-
-	memcpy(v, (uint8_t*)(ADDR_FLASH_SECTOR_8 + address), len);
-
-	return true;
-}
-
-/**
-  * @brief  Writes len bytes from v to nvm at address
-  * @param	v: array of bytes to write
-  * @param	len: number of bytes to write
-  * @param	address: address of the first byte
-  * @retval Boolean indicating success or failure
-  */
-bool flash_helper_write_nvm(uint8_t *v, unsigned int len, unsigned int address) {
-	if ((address + len) > VESC_IF_NVM_REGION_SIZE) {
-		return false;
-	}
-
-	uint16_t res = write_data(ADDR_FLASH_SECTOR_8 + address, v, len);
-
-	return (res == FLASH_COMPLETE);
-}
-
-/**
-  * @brief  Erase region of NVM used by packages.
-  * @retval Boolean indicating success or failure
-  */
-bool flash_helper_wipe_nvm(void) {
-	return (erase_sector(flash_sector[8]) == FLASH_COMPLETE);
-}
-
-#pragma GCC pop_options

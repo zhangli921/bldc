@@ -46,9 +46,6 @@
  *
  */
 
-#pragma GCC push_options
-#pragma GCC optimize ("Os")
-
 /*!
  * @defgroup bmi160
  * @brief
@@ -6335,7 +6332,5 @@ static int8_t trigger_foc(struct bmi160_offsets *offset, struct bmi160_dev const
 
     return rslt;
 }
-
-#pragma GCC pop_options
 
 /** @}*/

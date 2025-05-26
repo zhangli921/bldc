@@ -100,10 +100,7 @@
   * limitations under the License.
   *
   ******************************************************************************
-  */
-
-#pragma GCC push_options
-#pragma GCC optimize ("Os")
+  */ 
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_adc.h"
@@ -1729,10 +1726,7 @@ void ADC_ClearITPendingBit(ADC_TypeDef* ADCx, uint16_t ADC_IT)
   itmask = (uint8_t)(ADC_IT >> 8);
   /* Clear the selected ADC interrupt pending bits */
   ADCx->SR = ~(uint32_t)itmask;
-}
-
-#pragma GCC pop_options
-
+}                    
 /**
   * @}
   */ 

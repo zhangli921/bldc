@@ -142,16 +142,10 @@ else
   LDFLAGS  += -mno-thumb-interwork
 endif
 
-ifeq ($(OS),Windows_NT)
-  DEPPATH = build\$(PROJECT)\.dep
-else
-  DEPPATH = build/$(PROJECT)/.dep
-endif
-
 # Generate dependency information
-ASFLAGS  += -MD -MP -MF $(DEPPATH)/$(@F).d
-CFLAGS   += -MD -MP -MF $(DEPPATH)/$(@F).d
-CPPFLAGS += -MD -MP -MF $(DEPPATH)/$(@F).d
+ASFLAGS  += -MD -MP -MF .dep/$(@F).d
+CFLAGS   += -MD -MP -MF .dep/$(@F).d
+CPPFLAGS += -MD -MP -MF .dep/$(@F).d
 
 # Paths where to search for sources
 VPATH     = $(SRCPATHS)
@@ -174,25 +168,13 @@ ifneq ($(USE_VERBOSE_COMPILE),yes)
 	@echo $(CC) -c $(CFLAGS) -I. $(IINCDIR) main.c -o main.o
 	@echo
 endif
-ifeq ($(OS),Windows_NT)
-	@mkdir "$(BUILDDIR)"
-else
 	@mkdir -p $(BUILDDIR)
-endif
 
 $(OBJDIR):
-ifeq ($(OS),Windows_NT)
-	@mkdir "$(OBJDIR)"
-else
 	@mkdir -p $(OBJDIR)
-endif
 
 $(LSTDIR):
-ifeq ($(OS),Windows_NT)
-	@mkdir "$(LSTDIR)"
-else
 	@mkdir -p $(LSTDIR)
-endif
 
 $(ACPPOBJS) : $(OBJDIR)/%.o : %.cpp Makefile
 ifeq ($(USE_VERBOSE_COMPILE),yes)
@@ -311,20 +293,13 @@ $(BUILDDIR)/lib$(PROJECT).a: $(OBJS)
 
 clean:
 	@echo Cleaning
-	-rm -fR $(DEPPATH) $(BUILDDIR)
+	-rm -fR .dep $(BUILDDIR)
 	@echo
 	@echo Done
 
 #
 # Include the dependency files, should be the last of the makefile
 #
-ifeq ($(OS),Windows_NT)
-  $(shell cmd /C if not exist "$(DEPPATH)" mkdir "$(DEPPATH)")
-else
-  $(shell mkdir $(DEPPATH) 2>/dev/null)
-endif
-
--include $(wildcard $(DEPPATH)/*)
-
+-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)
 
 # *** EOF ***

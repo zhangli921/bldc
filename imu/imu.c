@@ -27,9 +27,8 @@
 #include "icm20948.h"
 #include "bmi160_wrapper.h"
 #include "lsm6ds3.h"
-#include "utils_math.h"
+#include "utils.h"
 #include "Fusion.h"
-#include "digital_filter.h"
 
 #include <math.h>
 #include <string.h>
@@ -38,7 +37,7 @@
 static ATTITUDE_INFO m_att;
 static FusionAhrs m_fusionAhrs;
 static float m_accel[3], m_gyro[3], m_mag[3];
-static stkalign_t m_thd_work_area[THD_WORKING_AREA_SIZE(1024) / sizeof(stkalign_t)];
+static stkalign_t m_thd_work_area[THD_WORKING_AREA_SIZE(2048) / sizeof(stkalign_t)];
 static i2c_bb_state m_i2c_bb;
 static spi_bb_state m_spi_bb;
 static ICM20948_STATE m_icm20948_state;
@@ -46,100 +45,45 @@ static BMI_STATE m_bmi_state;
 static imu_config m_settings;
 static systime_t init_time;
 static bool imu_ready;
-static Biquad acc_x_biquad, acc_y_biquad, acc_z_biquad, gyro_x_biquad, gyro_y_biquad, gyro_z_biquad;
-static char *m_imu_type_internal = "Unknown";
 
 // Private functions
 static void imu_read_callback(float *accel, float *gyro, float *mag);
+static void rotate(float *input, float *rotation, float *output);
 static int8_t user_i2c_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
 static int8_t user_i2c_write(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
 static int8_t user_spi_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len);
 static int8_t user_spi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len);
-static void terminal_imu_type_internal(int argc, const char **argv);
-
-// Function pointers
-static void (*m_read_callback)(float *acc, float *gyro, float *mag, float dt) = NULL;
 
 void imu_init(imu_config *set) {
-	bool imu_changed = set->sample_rate_hz != m_settings.sample_rate_hz ||
-			set->type != m_settings.type;
-
 	m_settings = *set;
-
-	//Biquad filters
-	float fc;
-	if(m_settings.accel_lowpass_filter_x > 0){
-		fc = m_settings.accel_lowpass_filter_x / m_settings.sample_rate_hz;
-		biquad_config(&acc_x_biquad, BQ_LOWPASS, fc);
-	}
-	if(m_settings.accel_lowpass_filter_y > 0){
-		fc = m_settings.accel_lowpass_filter_y / m_settings.sample_rate_hz;
-		biquad_config(&acc_y_biquad, BQ_LOWPASS, fc);
-	}
-	if(m_settings.accel_lowpass_filter_z > 0){
-		fc = m_settings.accel_lowpass_filter_z / m_settings.sample_rate_hz;
-		biquad_config(&acc_z_biquad, BQ_LOWPASS, fc);
-	}
-	if(m_settings.gyro_lowpass_filter > 0){
-		fc = m_settings.gyro_lowpass_filter / m_settings.sample_rate_hz;
-		biquad_config(&gyro_x_biquad, BQ_LOWPASS, fc);
-		biquad_config(&gyro_y_biquad, BQ_LOWPASS, fc);
-		biquad_config(&gyro_z_biquad, BQ_LOWPASS, fc);
-	}
-
-
-	imu_ready = false;
-
-	if (!imu_changed) {
-		return;
-	}
 
 	imu_stop();
 	imu_reset_orientation();
 
-	mpu9150_set_mag_enabled(set->use_magnetometer);
-	mpu9150_set_rate_hz(MIN(set->sample_rate_hz, 1000));
-	m_icm20948_state.rate_hz = MIN(set->sample_rate_hz, 1000);
+	mpu9150_set_rate_hz(set->sample_rate_hz);
+	m_icm20948_state.rate_hz = set->sample_rate_hz;
 	m_bmi_state.rate_hz = set->sample_rate_hz;
 	lsm6ds3_set_rate_hz(set->sample_rate_hz);
-
-	m_bmi_state.filter = set->filter;
-	lsm6ds3_set_filter(set->filter);
 
 	if (set->type == IMU_TYPE_INTERNAL) {
 #ifdef MPU9X50_SDA_GPIO
 		imu_init_mpu9x50(MPU9X50_SDA_GPIO, MPU9X50_SDA_PIN,
 				MPU9X50_SCL_GPIO, MPU9X50_SCL_PIN);
-		m_imu_type_internal = "MPU9X50";
 #endif
 
 #ifdef ICM20948_SDA_GPIO
 		imu_init_icm20948(ICM20948_SDA_GPIO, ICM20948_SDA_PIN,
 				ICM20948_SCL_GPIO, ICM20948_SCL_PIN, ICM20948_AD0_VAL);
-		m_imu_type_internal = "ICM20948";
 #endif
 
 #ifdef BMI160_SDA_GPIO
 		imu_init_bmi160_i2c(BMI160_SDA_GPIO, BMI160_SDA_PIN,
 				BMI160_SCL_GPIO, BMI160_SCL_PIN);
-		m_imu_type_internal = "BMI160";
 #endif
 
 #ifdef LSM6DS3_SDA_GPIO
 		imu_init_lsm6ds3(LSM6DS3_SDA_GPIO, LSM6DS3_SDA_PIN,
 				LSM6DS3_SCL_GPIO, LSM6DS3_SCL_PIN);
-		m_imu_type_internal = "LSM6DS3";
-#endif
-
-		// SPI not implemented yet, use as I2C
-#ifdef LSM6DS3_NSS_GPIO
-		palSetPadMode(LSM6DS3_NSS_GPIO, LSM6DS3_NSS_PIN, PAL_MODE_OUTPUT_PUSHPULL);
-		palSetPad(LSM6DS3_NSS_GPIO, LSM6DS3_NSS_PIN);
-		palSetPadMode(LSM6DS3_MISO_GPIO, LSM6DS3_MISO_PIN, PAL_MODE_OUTPUT_PUSHPULL);
-		palClearPad(LSM6DS3_MISO_GPIO, LSM6DS3_MISO_PIN);
-		imu_init_lsm6ds3(LSM6DS3_MOSI_GPIO, LSM6DS3_MOSI_PIN,
-				LSM6DS3_SCK_GPIO, LSM6DS3_SCK_PIN);
-		m_imu_type_internal = "LSM6DS3";
 #endif
 
 #ifdef BMI160_SPI_PORT_NSS
@@ -148,7 +92,6 @@ void imu_init(imu_config *set) {
 				BMI160_SPI_PORT_SCK, BMI160_SPI_PIN_SCK,
 				BMI160_SPI_PORT_MOSI, BMI160_SPI_PIN_MOSI,
 				BMI160_SPI_PORT_MISO, BMI160_SPI_PIN_MISO);
-		m_imu_type_internal = "BMI160_SPI";
 #endif
 	} else if (set->type == IMU_TYPE_EXTERNAL_MPU9X50) {
 		imu_init_mpu9x50(HW_I2C_SDA_PORT, HW_I2C_SDA_PIN,
@@ -166,12 +109,6 @@ void imu_init(imu_config *set) {
 		imu_init_bmi160_i2c(HW_I2C_SDA_PORT, HW_I2C_SDA_PIN,
 				HW_I2C_SCL_PORT, HW_I2C_SCL_PIN);
 	}
-
-	terminal_register_command_callback(
-			"imu_type_internal",
-			"Print internal IMU type",
-			0,
-			terminal_imu_type_internal);
 }
 
 void imu_reset_orientation(void) {
@@ -179,7 +116,7 @@ void imu_reset_orientation(void) {
 	init_time = chVTGetSystemTimeX();
 	ahrs_init_attitude_info(&m_att);
 	FusionAhrsInitialise(&m_fusionAhrs, 10.0, 1.0);
-	ahrs_update_all_parameters(&m_att, 1.0, 10.0, 0.0, 2.0);
+	ahrs_update_all_parameters(1.0, 10.0, 0.0, 2.0);
 }
 
 i2c_bb_state *imu_get_i2c(void) {
@@ -204,7 +141,6 @@ void imu_init_icm20948(stm32_gpio_t *sda_gpio, int sda_pin,
 	m_i2c_bb.sda_pin = sda_pin;
 	m_i2c_bb.scl_gpio = scl_gpio;
 	m_i2c_bb.scl_pin = scl_pin;
-	m_i2c_bb.rate = I2C_BB_RATE_400K;
 	i2c_bb_init(&m_i2c_bb);
 
 	icm20948_init(&m_icm20948_state,
@@ -221,7 +157,6 @@ void imu_init_bmi160_i2c(stm32_gpio_t *sda_gpio, int sda_pin,
 	m_i2c_bb.sda_pin = sda_pin;
 	m_i2c_bb.scl_gpio = scl_gpio;
 	m_i2c_bb.scl_pin = scl_pin;
-	m_i2c_bb.rate = I2C_BB_RATE_400K;
 	i2c_bb_init(&m_i2c_bb);
 
 	m_bmi_state.sensor.id = BMI160_I2C_ADDR;
@@ -262,14 +197,9 @@ void imu_init_bmi160_spi(stm32_gpio_t *nss_gpio, int nss_pin,
 void imu_init_lsm6ds3(stm32_gpio_t *sda_gpio, int sda_pin,
 		stm32_gpio_t *scl_gpio, int scl_pin) {
 
-	m_i2c_bb.sda_gpio = sda_gpio;
-	m_i2c_bb.sda_pin = sda_pin;
-	m_i2c_bb.scl_gpio = scl_gpio;
-	m_i2c_bb.scl_pin = scl_pin;
-	m_i2c_bb.rate = I2C_BB_RATE_400K;
-	i2c_bb_init(&m_i2c_bb);
-
-	lsm6ds3_init(&m_i2c_bb, m_thd_work_area, sizeof(m_thd_work_area));
+	lsm6ds3_init(sda_gpio, sda_pin,
+				scl_gpio, scl_pin,
+				m_thd_work_area, sizeof(m_thd_work_area));
 	lsm6ds3_set_read_callback(imu_read_callback);
 
 }
@@ -313,13 +243,13 @@ void imu_get_mag(float *mag) {
 	memcpy(mag, m_mag, sizeof(m_mag));
 }
 
-void imu_derotate(float *input, float *output) {
+void imu_get_accel_derotated(float *accel) {
 	float rpy[3];
 	imu_get_rpy(rpy);
 
-	const float ax = input[0];
-	const float ay = input[1];
-	const float az = input[2];
+	const float ax = m_accel[0];
+	const float ay = m_accel[1];
+	const float az = m_accel[2];
 
 	const float sr = sinf(rpy[0]);
 	const float cr = -cosf(rpy[0]);
@@ -331,21 +261,12 @@ void imu_derotate(float *input, float *output) {
 	float c_ax = ax * cp + ay * sp * sr + az * sp * cr;
 	float c_ay = ay * cr - az * sr;
 	float c_az = -ax * sp + ay * cp * sr + az * cp * cr;
-
 	float c_ax2 = cy * c_ax + sy * c_ay;
 	float c_ay2 = sy * c_ax - cy * c_ay;
 
-	output[0] = c_ax2;
-	output[1] = c_ay2;
-	output[2] = c_az;
-}
-
-void imu_get_accel_derotated(float *accel) {
-	imu_derotate(m_accel, accel);
-}
-
-void imu_get_gyro_derotated(float *gyro) {
-	imu_derotate(m_gyro, gyro);
+	accel[0] = c_ax2;
+	accel[1] = c_ay2;
+	accel[2] = c_az;
 }
 
 void imu_get_quaternions(float *q) {
@@ -372,7 +293,7 @@ void imu_get_calibration(float yaw, float *imu_cal) {
 	// Override settings
 	m_settings.sample_rate_hz = 1000;
 	m_settings.mode = AHRS_MODE_MADGWICK;
-	ahrs_update_all_parameters(&m_att, 1.0, 10.0, 0.0, 2.0);
+	ahrs_update_all_parameters(1.0, 10.0, 0.0, 2.0);
 	m_settings.rot_roll = 0;
 	m_settings.rot_pitch = 0;
 	m_settings.rot_yaw = 0;
@@ -416,8 +337,8 @@ void imu_get_calibration(float yaw, float *imu_cal) {
 	m_settings.rot_roll = -RAD2DEG_f(roll_sample);
 
 	// Rotate gyro offsets to match new IMU orientation
-	float rotation1[3] = {DEG2RAD_f(m_settings.rot_roll), DEG2RAD_f(m_settings.rot_pitch), DEG2RAD_f(m_settings.rot_yaw)};
-	utils_rotate_vector3(original_gyro_offsets, rotation1, m_settings.gyro_offsets, false);
+	float rotation1[3] = {m_settings.rot_roll, m_settings.rot_pitch, m_settings.rot_yaw};
+	rotate(original_gyro_offsets, rotation1, m_settings.gyro_offsets);
 
 	// Reset AHRS and wait 1.5 seconds (for AHRS to settle now that pitch is calibrated)
 	ahrs_init_attitude_info(&m_att);
@@ -435,15 +356,15 @@ void imu_get_calibration(float yaw, float *imu_cal) {
 	m_settings.rot_pitch = RAD2DEG_f(pitch_sample);
 
 	// Rotate imu offsets to match
-	float rotation2[3] = {DEG2RAD_f(m_settings.rot_roll), DEG2RAD_f(m_settings.rot_pitch), DEG2RAD_f(m_settings.rot_yaw)};
-	utils_rotate_vector3(original_gyro_offsets, rotation2, m_settings.gyro_offsets, false);
+	float rotation2[3] = {m_settings.rot_roll, m_settings.rot_pitch, m_settings.rot_yaw};
+	rotate(original_gyro_offsets, rotation2, m_settings.gyro_offsets);
 
 	// Set yaw rotations to match user input
 	m_settings.rot_yaw = yaw;
 
 	// Rotate gyro offsets to match new IMU orientation
-	float rotation3[3] = {DEG2RAD_f(m_settings.rot_roll), DEG2RAD_f(m_settings.rot_pitch), DEG2RAD_f(m_settings.rot_yaw)};
-	utils_rotate_vector3(original_gyro_offsets, rotation3, m_settings.gyro_offsets, false);
+	float rotation3[3] = {m_settings.rot_roll, m_settings.rot_pitch, m_settings.rot_yaw};
+	rotate(original_gyro_offsets, rotation3, m_settings.gyro_offsets);
 
 	// Note to future person interested in calibration:
 	// This is where accel calibration should go, because at this point the values should be 0,0,1
@@ -465,11 +386,10 @@ void imu_get_calibration(float yaw, float *imu_cal) {
 	m_settings.sample_rate_hz = backup_sample_rate;
 	m_settings.mode = backup_ahrs_mode;
 	ahrs_update_all_parameters(
-			&m_att,
-			m_settings.accel_confidence_decay,
-			m_settings.mahony_kp,
-			m_settings.mahony_ki,
-			m_settings.madgwick_beta);
+					m_settings.accel_confidence_decay,
+					m_settings.mahony_kp,
+					m_settings.mahony_ki,
+					m_settings.madgwick_beta);
 	m_settings.rot_roll = backup_roll;
 	m_settings.rot_pitch = backup_pitch;
 	m_settings.rot_yaw = backup_yaw;
@@ -484,17 +404,6 @@ void imu_get_calibration(float yaw, float *imu_cal) {
 	FusionAhrsReinitialise(&m_fusionAhrs);
 }
 
-/*
- * Set the yaw-component of the IMU state. Currently only works for the fusion filter.
- */
-void imu_set_yaw(float yaw_deg) {
-	FusionAhrsSetYaw(&m_fusionAhrs, yaw_deg);
-}
-
-void imu_set_read_callback(void (*func)(float *acc, float *gyro, float *mag, float dt)) {
-	m_read_callback = func;
-}
-
 static void imu_read_callback(float *accel, float *gyro, float *mag) {
 	static uint32_t last_time = 0;
 
@@ -505,7 +414,6 @@ static void imu_read_callback(float *accel, float *gyro, float *mag) {
 
 	if (!imu_ready && ST2MS(chVTGetSystemTimeX() - init_time) > 1000) {
 		ahrs_update_all_parameters(
-				&m_att,
 				m_settings.accel_confidence_decay,
 				m_settings.mahony_kp,
 				m_settings.mahony_ki,
@@ -533,18 +441,6 @@ static void imu_read_callback(float *accel, float *gyro, float *mag) {
 	gyro[1] *= -1.0;
 	mag[0] *= -1.0;
 	mag[1] *= -1.0;
-#endif
-
-#ifdef IMU_ROT_90
-	float a0_old = accel[0];
-	float g0_old = gyro[0];
-	float m0_old = mag[0];
-	accel[0] = accel[1];
-	accel[1] = -a0_old;
-	gyro[0] = gyro[1];
-	gyro[1] = -g0_old;
-	mag[0] = mag[1];
-	mag[1] = -m0_old;
 #endif
 
 	// Rotate axes (ZYX)
@@ -578,22 +474,6 @@ static void imu_read_callback(float *accel, float *gyro, float *mag) {
 		m_gyro[i] -= m_settings.gyro_offsets[i];
 	}
 
-	// Apply filters
-	if(m_settings.accel_lowpass_filter_x > 0){
-		m_accel[0] = biquad_process(&acc_x_biquad, m_accel[0]);
-	}
-	if(m_settings.accel_lowpass_filter_y > 0){
-		m_accel[1] = biquad_process(&acc_y_biquad, m_accel[1]);
-	}
-	if(m_settings.accel_lowpass_filter_z > 0){
-		m_accel[2] = biquad_process(&acc_z_biquad, m_accel[2]);
-	}
-	if(m_settings.gyro_lowpass_filter > 0){
-		m_gyro[0] = biquad_process(&gyro_x_biquad, m_gyro[0]);
-		m_gyro[1] = biquad_process(&gyro_y_biquad, m_gyro[1]);
-		m_gyro[2] = biquad_process(&gyro_z_biquad, m_gyro[2]);
-	}
-
 	float gyro_rad[3];
 	gyro_rad[0] = DEG2RAD_f(m_gyro[0]);
 	gyro_rad[1] = DEG2RAD_f(m_gyro[1]);
@@ -624,10 +504,24 @@ static void imu_read_callback(float *accel, float *gyro, float *mag) {
 			m_att.q3 = m_fusionAhrs.quaternion.element.z;
 		} break;
 	}
+}
 
-	if (m_read_callback) {
-		m_read_callback(m_accel, gyro_rad, m_mag, dt);
-	}
+void rotate(float *input, float *rotation, float *output) {
+	// Rotate imu offsets to match
+	float s1 = sinf(DEG2RAD_f(rotation[2]));
+	float c1 = cosf(DEG2RAD_f(rotation[2]));
+	float s2 = sinf(DEG2RAD_f(rotation[1]));
+	float c2 = cosf(DEG2RAD_f(rotation[1]));
+	float s3 = sinf(DEG2RAD_f(rotation[0]));
+	float c3 = cosf(DEG2RAD_f(rotation[0]));
+
+	float m11 = c1 * c2;	float m12 = c1 * s2 * s3 - c3 * s1;	float m13 = s1 * s3 + c1 * c3 * s2;
+	float m21 = c2 * s1;	float m22 = c1 * c3 + s1 * s2 * s3;	float m23 = c3 * s1 * s2 - c1 * s3;
+	float m31 = -s2; 		float m32 = c2 * s3;				float m33 = c2 * c3;
+
+	output[0] = input[0] * m11 + input[1] * m12 + input[2] * m13;
+	output[1] = input[0] * m21 + input[1] * m22 + input[2] * m23;
+	output[2] = input[0] * m31 + input[1] * m32 + input[2] * m33;
 }
 
 static int8_t user_i2c_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len) {
@@ -687,9 +581,4 @@ static int8_t user_spi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, ui
 	chMtxUnlock(&m_spi_bb.mutex);
 
 	return rslt;
-}
-
-static void terminal_imu_type_internal(int argc, const char **argv) {
-	(void)argc;(void)argv;
-	commands_printf(m_imu_type_internal);
 }

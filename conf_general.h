@@ -1,5 +1,5 @@
 /*
-	Copyright 2017 - 2022 Benjamin Vedder	benjamin@vedder.se
+	Copyright 2017 - 2021 Benjamin Vedder	benjamin@vedder.se
 
 	This file is part of the VESC firmware.
 
@@ -21,17 +21,174 @@
 #define CONF_GENERAL_H_
 
 // Firmware version
-#define FW_VERSION_MAJOR			6
-#define FW_VERSION_MINOR			05
+#define FW_VERSION_MAJOR			5
+#define FW_VERSION_MINOR			03
 // Set to 0 for building a release and iterate during beta test builds
 #define FW_TEST_VERSION_NUMBER		0
 
 #include "datatypes.h"
 
+// Settings and parameters to override
+//#define VIN_R1						33000.0
+//#define VIN_R1						39200.0
+//#define VIN_R2						2200.0
+//#define CURRENT_AMP_GAIN			10.0
+//#define CURRENT_SHUNT_RES			0.005
+//#define WS2811_ENABLE				1
+//#define WS2811_TEST					1
+//#define CURR1_DOUBLE_SAMPLE			0
+//#define CURR2_DOUBLE_SAMPLE			0
+//#define AS5047_USE_HW_SPI_PINS		1
+
 // Disable hardware limits on configuration parameters
 //#define DISABLE_HW_LIMITS
 
-#if !defined(HW_SOURCE) && !defined(HW_SOURCE_ALT)
+/*
+ * Select only one hardware version, if it is not passed
+ * as an argument.
+ */
+#if !defined(HW_SOURCE) && !defined(HW_HEADER)
+//#define HW_SOURCE "hw_40.c"
+//#define HW_HEADER "hw_40.h"
+
+//#define HW_SOURCE "hw_45.c"
+//#define HW_HEADER "hw_45.h"
+
+//#define HW_SOURCE "hw_46.c" // Also for 4.7
+//#define HW_HEADER "hw_46.h" // Also for 4.7
+
+//#define HW_SOURCE "hw_48.c"
+//#define HW_HEADER "hw_48.h"
+
+//#define HW_SOURCE "hw_49.c"
+//#define HW_HEADER "hw_49.h"
+
+//#define HW_SOURCE "hw_410.c" // Also for 4.11 and 4.12
+//#define HW_HEADER "hw_410.h" // Also for 4.11 and 4.12
+
+//#define HW_SOURCE "hw_gesc.c"
+//#define HW_HEADER "hw_gesc.h"
+
+// Mark3 version of HW60 with power switch and separate NRF UART.
+//#define HW60_IS_MK3
+//#define HW60_IS_MK4
+//#define HW60_IS_MK5
+
+#define HW_SOURCE "hw_60.c"
+#define HW_HEADER "hw_60.h"
+
+//#define HW_SOURCE "hw_r2.c"
+//#define HW_HEADER "hw_r2.h"
+
+//#define HW_SOURCE "hw_victor_r1a.c"
+//#define HW_HEADER "hw_victor_r1a.h"
+
+//#define HW_SOURCE "hw_das_rs.c"
+//#define HW_HEADER "hw_das_rs.h"
+
+//#define HW_SOURCE "hw_axiom.c"
+//#define HW_HEADER "hw_axiom.h"
+
+//#define HW_SOURCE "luna/hw_luna_bbshd.c"
+//#define HW_HEADER "luna/hw_luna_bbshd.h"
+
+//#define HW_SOURCE "hw_rh.c"
+//#define HW_HEADER "hw_rh.h"
+
+//#define HW_SOURCE "hw_tp.c"
+//#define HW_HEADER "hw_tp.h"
+
+// Benjamins first HW75_300 PCB with different LED pins and motor temp error
+//#define HW75_300_VEDDER_FIRST_PCB
+
+// Second revision with separate UART for NRF51
+//#define HW75_300_REV_2
+#define HW75_300_REV_3
+
+//#define HW_SOURCE "hw_75_300.c"
+//#define HW_HEADER "hw_75_300.h"
+
+//#define HW_SOURCE "hw_mini4.c"
+//#define HW_HEADER "hw_mini4.h"
+
+//#define HW_SOURCE "hw_das_mini.c"
+//#define HW_HEADER "hw_das_mini.h"
+
+//#define HW_SOURCE "hw_uavc_qcube.c"
+//#define HW_HEADER "hw_uavc_qcube.h"
+
+//#define HW_SOURCE "hw_uavc_omega.c"
+//#define HW_HEADER "hw_uavc_omega.h"
+
+//#define HW_SOURCE "hw_hd60.c"
+//#define HW_HEADER "hw_hd60.h"
+
+//#define HW_SOURCE "hw_hd75.c"
+//#define HW_HEADER "hw_hd75.h"
+
+//#define HW_A50S_6S
+//#define HW_A50S_12S
+//#define HW_SOURCE "hw_a50s.c"
+//#define HW_HEADER "hw_a50s.h"
+
+//#define HW_SOURCE "hw_a200s_v2.c"
+//#define HW_HEADER "hw_a200s_v2.h"
+
+//#define HW_SOURCE "hw_rd2.c"
+//#define HW_HEADER "hw_rd2.h"
+
+//#define HW_SOURCE "hw_100_250.c"
+//#define HW_HEADER "hw_100_250.h"
+
+//#define HW_SOURCE "hw_unity.c"
+//#define HW_HEADER "hw_unity.h"
+
+//#define HW_SOURCE "hw_uxv_sr.c"
+//#define HW_HEADER "hw_uxv_sr.h"
+
+//#define HW_DUAL_CONFIG_PARALLEL
+//#define HW_VER_IS_100D_V2
+//#define HW_VER_IS_100DX
+//#define HW_SOURCE "hw_stormcore_100d.c"
+//#define HW_HEADER "hw_stormcore_100d.h"
+
+//#define HW_VER_IS_60D_PLUS
+//#define HW_VER_IS_60D_XS
+//#define HW_SOURCE "hw_stormcore_60d.c"
+//#define HW_HEADER "hw_stormcore_60d.h"
+
+//#define HW_SOURCE "hw_stormcore_100s.c"
+//#define HW_HEADER "hw_stormcore_100s.h"
+
+//#define HW_SOURCE "hw_Cheap_FOCer_2.c"
+//#define HW_HEADER "hw_Cheap_FOCer_2.h"
+
+//#define HW_SOURCE "hw_140_300.c"
+//#define HW_HEADER "hw_140_300.h"
+
+//#define HW_SOURCE "hw_es19.c"
+//#define HW_HEADER "hw_es19.h"
+
+//#define HW_SOURCE "hw_Little_FOCer.c"
+//#define HW_HEADER "hw_Little_FOCer.h"
+
+//#define HW_SOURCE "hw_100_500.c"
+//#define HW_HEADER "hw_100_500.h"
+
+//#define HW_SOURCE "hw_warrior6.c"
+//#define HW_HEADER "hw_warrior6.h"
+
+//#define HW_SOURCE "hw_raiden7.c"
+//#define HW_HEADER "hw_raiden7.h"
+
+//#define HW_SOURCE "hw_ubox_single.c"
+//#define HW_HEADER "hw_ubox_single.h"
+
+//#define HW_SOURCE "hw_60v2_alva.c"
+//#define HW_HEADER "hw_60v2_alva.h"
+#endif
+
+#ifndef HW_SOURCE
 #error "No hardware source file set"
 #endif
 
@@ -84,6 +241,13 @@
 //#define APP_CUSTOM_TO_USE			"app_motor_heater.c"
 //#include "er/app_erockit_conf_v2.h"
 //#include "finn/app_finn_az_conf.h"
+//#include "vccu/app_vccu_conf.h"
+//#include "pitch/app_pitch_conf.h"
+
+// CAN-plotter
+//#define APP_CUSTOM_TO_USE			"app_plot_can.c"
+//#define APPCONF_APP_TO_USE			APP_CUSTOM
+//#define APPCONF_CAN_BAUD_RATE		CAN_BAUD_75K
 
 #include "hw.h"
 #include "mcconf_default.h"
@@ -109,6 +273,12 @@
 #endif
 
 /*
+ * Settings for the external LEDs (hardcoded for now)
+ */
+#define LED_EXT_BATT_LOW			28.0
+#define LED_EXT_BATT_HIGH			33.0
+
+/*
  * Servo output driver
  */
 #define SERVO_OUT_PULSE_MIN_US		1000	// Minimum pulse length in microseconds
@@ -120,12 +290,6 @@
 
 // Current ADC to amperes factor
 #define FAC_CURRENT					((V_REG / 4095.0) / (CURRENT_SHUNT_RES * CURRENT_AMP_GAIN))
-#define FAC_CURRENT1				(FAC_CURRENT * CURRENT_CAL1)
-#define FAC_CURRENT2				(FAC_CURRENT * CURRENT_CAL2)
-#define FAC_CURRENT3				(FAC_CURRENT * CURRENT_CAL3)
-#define FAC_CURRENT1_M2				(FAC_CURRENT * CURRENT_CAL1_M2)
-#define FAC_CURRENT2_M2				(FAC_CURRENT * CURRENT_CAL2_M2)
-#define FAC_CURRENT3_M2				(FAC_CURRENT * CURRENT_CAL3_M2)
 
 #define VOLTAGE_TO_ADC_FACTOR	( VIN_R2 / (VIN_R2 + VIN_R1) ) * ( 4096.0 / V_REG )
 
@@ -134,6 +298,18 @@
 //#define V_REG						3.3
 
 // Use the pins for the hardware SPI port instead of the hall/encoder pins for the AS5047
+#ifndef AS5047_USE_HW_SPI_PINS
+#define AS5047_USE_HW_SPI_PINS		0
+#endif
+#ifndef ICMHM_USE_HW_MOSI_PIN
+#define ICMHM_USE_HW_MOSI_PIN		1
+#endif
+#ifndef AD2S1205_USE_HW_SPI_PINS
+#define AD2S1205_USE_HW_SPI_PINS	0
+#endif
+#ifndef MT6816_USE_HW_SPI_PINS
+#define MT6816_USE_HW_SPI_PINS		0
+#endif
 #ifndef AS504x_USE_SW_MOSI_PIN
 #define AS504x_USE_SW_MOSI_PIN 		0
 #endif
@@ -182,22 +358,20 @@ bool conf_general_store_app_configuration(app_configuration *conf);
 void conf_general_read_mc_configuration(mc_configuration *conf, bool is_motor_2);
 bool conf_general_store_mc_configuration(mc_configuration *conf, bool is_motor_2);
 bool conf_general_detect_motor_param(float current, float min_rpm, float low_duty,
-									 float *int_limit, float *bemf_coupling_k, int8_t *hall_table, int *hall_res);
+		float *int_limit, float *bemf_coupling_k, int8_t *hall_table, int *hall_res);
 bool conf_general_measure_flux_linkage(float current, float duty,
-									   float min_erpm, float res, float *linkage);
+		float min_erpm, float res, float *linkage);
 uint8_t conf_general_calculate_deadtime(float deadtime_ns, float core_clock_freq);
-int conf_general_measure_flux_linkage_openloop(float current, float duty,
-											   float erpm_per_sec, float res, float ind, float *linkage,
-											   float *linkage_undriven, float *undriven_samples, bool *result);
+bool conf_general_measure_flux_linkage_openloop(float current, float duty,
+		float erpm_per_sec, float res, float ind, float *linkage,
+		float *linkage_undriven, float *undriven_samples);
 int conf_general_autodetect_apply_sensors_foc(float current,
-											  bool store_mcconf_on_success, bool send_mcconf_on_success, int *result);
+		bool store_mcconf_on_success, bool send_mcconf_on_success);
 void conf_general_calc_apply_foc_cc_kp_ki_gain(mc_configuration *mcconf, float tc);
 int conf_general_detect_apply_all_foc(float max_power_loss,
-									  bool store_mcconf_on_success, bool send_mcconf_on_success);
+		bool store_mcconf_on_success, bool send_mcconf_on_success);
 int conf_general_detect_apply_all_foc_can(bool detect_can, float max_power_loss,
-										  float min_current_in, float max_current_in,
-										  float openloop_rpm, float sl_erpm,
-										  void(*reply_func)(unsigned char* data, unsigned int len));
+		float min_current_in, float max_current_in, float openloop_rpm, float sl_erpm);
 
 
 #endif /* CONF_GENERAL_H_ */

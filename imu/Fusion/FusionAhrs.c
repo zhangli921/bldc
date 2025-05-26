@@ -41,7 +41,7 @@
 #include "FusionAhrs.h"
 #include <float.h> // FLT_MAX
 #include <math.h> // atan2f, cosf, sinf
-#include "utils_math.h"
+#include "utils.h"
 
 //------------------------------------------------------------------------------
 // Definitions

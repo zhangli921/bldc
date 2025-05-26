@@ -18,14 +18,9 @@
 	*/
 
 #include "conf_general.h"
-#include "utils_math.h"
+#include "utils.h"
 #include <math.h>
-
-#ifdef HW_SOURCE_ALT
-#include HW_SOURCE_ALT
-#else
 #include HW_SOURCE
-#endif
 
 uint8_t hw_id_from_uuid(void) {
 	uint8_t id = utils_crc32c(STM32_UUID_8, 12) & 0x7F;

@@ -21,7 +21,6 @@
 #include "mc_interface.h"
 #include "stm32f4xx_conf.h"
 #include "shutdown.h"
-#include "utils.h"
 
 // Private variables
 static volatile bool init_done = false;
@@ -34,7 +33,7 @@ static volatile bool kill_sw_active;
 static volatile uint32_t feed_counter[MAX_THREADS_MONITOR];
 
 // Threads
-static THD_WORKING_AREA(timeout_thread_wa, 256);
+static THD_WORKING_AREA(timeout_thread_wa, 512);
 static THD_FUNCTION(timeout_thread, arg);
 
 void timeout_init(void) {
@@ -89,15 +88,11 @@ void timeout_configure(systime_t timeout, float brake_current, KILL_SW_MODE kill
 }
 
 void timeout_reset(void) {
-	last_update_time = chVTGetSystemTimeX();
+	last_update_time = chVTGetSystemTime();
 }
 
 bool timeout_has_timeout(void) {
 	return has_timeout;
-}
-
-float timeout_secs_since_update(void) {
-	return UTILS_AGE_S(last_update_time);
 }
 
 bool timeout_kill_sw_active(void) {

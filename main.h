@@ -21,6 +21,5 @@
 #define MAIN_H_
 
 bool main_init_done(void);
-uint32_t main_calc_hw_crc(void);
 
 #endif /* MAIN_H_ */

@@ -25,10 +25,6 @@
  *
  * Also supports Cortex-M0 / ARMv6-M
  */
-
-#pragma GCC push_options
-#pragma GCC optimize ("Os")
-
 #include "general.h"
 #include "exception.h"
 #include "adiv5.h"
@@ -1025,6 +1021,4 @@ static int cortexm_hostio_request(target *t)
 
 	return t->tc->interrupted;
 }
-
-#pragma GCC pop_options
 
