@@ -416,7 +416,8 @@ float encoder_read_deg_multiturn(void) {
 
 		return encoder_read_deg() / 10000.0 + (360 * ts_mt) / 10000.0;
 	} else if (m_encoder_type_now == ENCODER_TYPE_ICMHM) {
-		float ts_mt = (float)enc_icmhm_get_abm(&encoder_cfg_icmhm);
+		int32_t ts_mt = enc_icmhm_get_abm(&encoder_cfg_icmhm);		
+
 		return encoder_read_deg() + (360 * ts_mt);
 	}
 	else {
@@ -425,7 +426,7 @@ float encoder_read_deg_multiturn(void) {
 }
 
 void encoder_set_deg(float deg) {
-	utils_norm_angle(&deg);
+	//utils_norm_angle(&deg);
 
 	if (m_encoder_type_now == ENCODER_TYPE_ABI) {
 		encoder_cfg_ABI.timer->CNT = (uint32_t)(deg / 360.0 * (float)encoder_cfg_ABI.counts);

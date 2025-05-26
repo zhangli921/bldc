@@ -405,7 +405,7 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 			error_sign = -1.0;
 		}
 	}
-
+	
 	error *= error_sign;
 
 	float kp = conf_now->p_pid_kp;
@@ -450,7 +450,7 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	if (angle_now == motor->m_pos_prev_proc) {
 		d_term_proc = 0.0;
 	} else {
-		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc); //-(angle_now - motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc); 
 		motor->m_pos_dt_int_proc = 0.0;
 	}
 
@@ -469,18 +469,19 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 
 	// Calculate output
 	float output = p_term + motor->m_pos_i_term + d_term + d_term_proc;	
-	utils_truncate_number(&output, -1.0, 1.0); // limit output to -1..+1
+	utils_truncate_number_abs(&output, 1.0); // limit output to -1..+1			
 	
 	if (conf_now->m_sensor_port_mode != SENSOR_PORT_MODE_HALL) {
-		if (index_found) {			
+		if (index_found) {				
     		output *= 10000.0;
 			motor->m_speed_pid_set_rpm = output;
-			foc_run_pid_control_speed(index_found, dt, motor);			
+			foc_run_pid_control_speed(index_found, dt, motor);		
+			//motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;	
 		} else {			
 			// Rotate the motor with 40 % power until the encoder index is found.
 			motor->m_iq_set = 0.4 * conf_now->l_current_max * conf_now->l_current_max_scale;
 		}
-	} else {
+	} else {		
 		motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;
 	}
 }

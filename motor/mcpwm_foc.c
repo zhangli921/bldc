@@ -2766,30 +2766,30 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 #endif
 
 void mcpwm_foc_print_state(void) {
-	commands_printf("Mod d:     %.2f", (double)get_motor_now()->m_motor_state.mod_d);
-	commands_printf("Mod q:     %.2f", (double)get_motor_now()->m_motor_state.mod_q);
-	commands_printf("Mod q flt: %.2f", (double)get_motor_now()->m_motor_state.mod_q_filter);
-	commands_printf("Duty:      %.2f", (double)get_motor_now()->m_motor_state.duty_now);
-	commands_printf("Vd:        %.2f", (double)get_motor_now()->m_motor_state.vd);
-	commands_printf("Vq:        %.2f", (double)get_motor_now()->m_motor_state.vq);
-	commands_printf("Phase:     %.2f", (double)get_motor_now()->m_motor_state.phase);
-	commands_printf("V_alpha:   %.2f", (double)get_motor_now()->m_motor_state.v_alpha);
-	commands_printf("V_beta:    %.2f", (double)get_motor_now()->m_motor_state.v_beta);
-	commands_printf("id:        %.2f", (double)get_motor_now()->m_motor_state.id);
-	commands_printf("iq:        %.2f", (double)get_motor_now()->m_motor_state.iq);
-	commands_printf("id_filter: %.2f", (double)get_motor_now()->m_motor_state.id_filter);
-	commands_printf("iq_filter: %.2f", (double)get_motor_now()->m_motor_state.iq_filter);
-	commands_printf("id_target: %.2f", (double)get_motor_now()->m_motor_state.id_target);
-	commands_printf("iq_target: %.2f", (double)get_motor_now()->m_motor_state.iq_target);
-	commands_printf("i_abs:     %.2f", (double)get_motor_now()->m_motor_state.i_abs);
-	commands_printf("i_abs_flt: %.2f", (double)get_motor_now()->m_motor_state.i_abs_filter);
-	commands_printf("Obs_x1:    %.2f", (double)get_motor_now()->m_observer_state.x1);
-	commands_printf("Obs_x2:    %.2f", (double)get_motor_now()->m_observer_state.x2);
-	commands_printf("lambda_est:%.4f", (double)get_motor_now()->m_observer_state.lambda_est);
-	commands_printf("vd_int:    %.2f", (double)get_motor_now()->m_motor_state.vd_int);
-	commands_printf("vq_int:    %.2f", (double)get_motor_now()->m_motor_state.vq_int);
-	commands_printf("off_delay: %.2f", (double)get_motor_now()->m_current_off_delay);
-	commands_printf("pos now: %.2f, pose set: %.2f.", (double)get_motor_now()->m_pos_pid_now, (double)get_motor_now()->m_pos_pid_set);  //zhang li
+	// commands_printf("Mod d:     %.2f", (double)get_motor_now()->m_motor_state.mod_d);
+	// commands_printf("Mod q:     %.2f", (double)get_motor_now()->m_motor_state.mod_q);
+	// commands_printf("Mod q flt: %.2f", (double)get_motor_now()->m_motor_state.mod_q_filter);
+	// commands_printf("Duty:      %.2f", (double)get_motor_now()->m_motor_state.duty_now);
+	// commands_printf("Vd:        %.2f", (double)get_motor_now()->m_motor_state.vd);
+	// commands_printf("Vq:        %.2f", (double)get_motor_now()->m_motor_state.vq);
+	// commands_printf("Phase:     %.2f", (double)get_motor_now()->m_motor_state.phase);
+	// commands_printf("V_alpha:   %.2f", (double)get_motor_now()->m_motor_state.v_alpha);
+	// commands_printf("V_beta:    %.2f", (double)get_motor_now()->m_motor_state.v_beta);
+	// commands_printf("id:        %.2f", (double)get_motor_now()->m_motor_state.id);
+	// commands_printf("iq:        %.2f", (double)get_motor_now()->m_motor_state.iq);
+	// commands_printf("id_filter: %.2f", (double)get_motor_now()->m_motor_state.id_filter);
+	// commands_printf("iq_filter: %.2f", (double)get_motor_now()->m_motor_state.iq_filter);
+	// commands_printf("id_target: %.2f", (double)get_motor_now()->m_motor_state.id_target);
+	// commands_printf("iq_target: %.2f", (double)get_motor_now()->m_motor_state.iq_target);
+	// commands_printf("i_abs:     %.2f", (double)get_motor_now()->m_motor_state.i_abs);
+	// commands_printf("i_abs_flt: %.2f", (double)get_motor_now()->m_motor_state.i_abs_filter);
+	// commands_printf("Obs_x1:    %.2f", (double)get_motor_now()->m_observer_state.x1);
+	// commands_printf("Obs_x2:    %.2f", (double)get_motor_now()->m_observer_state.x2);
+	// commands_printf("lambda_est:%.4f", (double)get_motor_now()->m_observer_state.lambda_est);
+	// commands_printf("vd_int:    %.2f", (double)get_motor_now()->m_motor_state.vd_int);
+	// commands_printf("vq_int:    %.2f", (double)get_motor_now()->m_motor_state.vq_int);
+	// commands_printf("off_delay: %.2f", (double)get_motor_now()->m_current_off_delay);
+	commands_printf("pos now: %.2f, pose set: %.2f, diff: %.2f.", (double)get_motor_now()->m_pos_pid_now, (double)get_motor_now()->m_pos_pid_set, utils_angle_difference(get_motor_now()->m_pos_pid_set, get_motor_now()->m_pos_pid_now));  //zhang li
 }
 
 float mcpwm_foc_get_last_adc_isr_duration(void) {

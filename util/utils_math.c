@@ -80,7 +80,7 @@ float utils_angle_difference(float angle1, float angle2) {
 	float difference = angle1 - angle2;
 	while (difference < -180.0) difference += 2.0 * 180.0;
 	while (difference > 180.0) difference -= 2.0 * 180.0;
-	return difference;
+	return difference;	
 }
 
 /**

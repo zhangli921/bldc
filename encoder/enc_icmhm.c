@@ -137,7 +137,7 @@ void enc_icmhm_routine(ICMHM_config_t *cfg) {
 	cfg->state.last_update_time = timer_time_now();
 
 	{
-		uint16_t pos;
+		//uint16_t pos;
 		static const uint8_t abs_spi_dma_tx_[6] = {0xA6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     	uint8_t abs_spi_dma_rx_[6];
 
@@ -159,13 +159,18 @@ void enc_icmhm_routine(ICMHM_config_t *cfg) {
 		//commands_printf("@MHM %02x %02x %02x %02x %02x %02x\r\n", abs_spi_dma_rx_[0], abs_spi_dma_rx_[1],
 		//	abs_spi_dma_rx_[2], abs_spi_dma_rx_[3], abs_spi_dma_rx_[4], abs_spi_dma_rx_[5]);
 
-		cfg->state.mt_val = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
-		uint16_t angle = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
-		angle >>= 4;
-		pos = angle;
-		cfg->state.spi_val = pos;
+		//读取多圈数据
+		int32_t mt_val_tmp = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
+		if (mt_val_tmp > 8388608) {
+			mt_val_tmp -= 16777216;			
+		}
+		cfg->state.mt_val = mt_val_tmp;
 
-		cfg->state.last_enc_angle = ((float)pos * 360.0) / 4096.0;
+		uint16_t pose_val = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
+		pose_val >>= 4;		
+		cfg->state.spi_val = pose_val;
+
+		cfg->state.last_enc_angle = ((float)pose_val * 360.0) / 4096.0;
 		UTILS_LP_FAST(cfg->state.spi_error_rate, 0.0, timestep);
 		UTILS_LP_FAST(cfg->state.encoder_no_magnet_error_rate, 0.0, timestep);
 	}
