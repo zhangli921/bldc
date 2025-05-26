@@ -611,7 +611,7 @@ float encoder_read_deg(void) {
 	case ENCODER_MODE_MT6816_SPI:
 	case RESOLVER_MODE_AD2S1205:
 	case ENCODER_MODE_TS5700N8501:
-	case ENCODER_MODE_ICMHM_SPI:
+	case ENCODER_MODE_ICMHM_SPI:		
 		angle = last_enc_angle;
 		break;
 
@@ -655,25 +655,25 @@ float encoder_read_deg(void) {
 /*
  * Note: This is not a good solution and needs a proper implementation later...
  */
-float encoder_read_deg_multiturn(void) {
-	if (mode == ENCODER_MODE_TS5700N8501) {
-		encoder_ts57n8501_get_abm();
-		float ts_mt = (float)encoder_ts57n8501_get_abm();
-		if (fabsf(ts_mt) > 5000.0) {
-			ts_mt = 0;
-			encoder_ts57n8501_reset_multiturn();
-		}
+// float encoder_read_deg_multiturn(void) {
+// 	if (mode == ENCODER_MODE_TS5700N8501) {
+// 		encoder_ts57n8501_get_abm();
+// 		float ts_mt = (float)encoder_ts57n8501_get_abm();
+// 		if (fabsf(ts_mt) > 5000.0) {
+// 			ts_mt = 0;
+// 			encoder_ts57n8501_reset_multiturn();
+// 		}
 
-		ts_mt += 5000;
+// 		ts_mt += 5000;
 
-		return encoder_read_deg() / 10000.0 + (360 * ts_mt) / 10000.0;
-	} else if (mode == ENCODER_MODE_ICMHM_SPI) {
-		float ts_mt = (float)encoder_mhm_get_abm();
-		return encoder_read_deg() + (360 * ts_mt);
-	} else {
-		return encoder_read_deg();
-	}
-}
+// 		return encoder_read_deg() / 10000.0 + (360 * ts_mt) / 10000.0;
+// 	} else if (mode == ENCODER_MODE_ICMHM_SPI) {
+// 		float ts_mt = (float)encoder_mhm_get_abm();
+// 		return encoder_read_deg() + (360 * ts_mt);
+// 	} else {
+// 		return encoder_read_deg();
+// 	}
+// }
 
 /**
  * Reset the encoder counter. Should be called from the index interrupt.
@@ -843,8 +843,7 @@ AS504x_diag encoder_AS504x_get_diag(void) {
 }
 
 #if 1
-void encoder_tim_isr(void) {
-	uint16_t pos;
+void encoder_tim_isr(void) {	
 
 	{
 		static const uint8_t abs_spi_dma_tx_[6] = {0xA6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -868,13 +867,19 @@ void encoder_tim_isr(void) {
 		//commands_printf("@MHM %02x %02x %02x %02x %02x %02x\r\n", abs_spi_dma_rx_[0], abs_spi_dma_rx_[1],
 		//	abs_spi_dma_rx_[2], abs_spi_dma_rx_[3], abs_spi_dma_rx_[4], abs_spi_dma_rx_[5]);
 
+		//多圈圈数
 		mhm_mt_val = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
-		uint16_t angle = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
-		angle >>= 4;
-		pos = angle;
-		spi_val = pos;
+		if (mhm_mt_val > 8388608) {
+			mhm_mt_val -= 16777216;			
+		}		
+		
+		//单圈位置
+		uint16_t st_val = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
+		st_val >>= 4;	
 
-		last_enc_angle = ((float)pos * 360.0) / 4096.0;
+		spi_val = st_val;
+
+		last_enc_angle = mhm_mt_val * 360 + ((float)st_val * 360.0) / 4096.0;
 		UTILS_LP_FAST(spi_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
 		UTILS_LP_FAST(encoder_no_magnet_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
 	}

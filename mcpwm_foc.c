@@ -3082,16 +3082,17 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	// Track position control angle
 	float angle_now = 0.0;
 	if (encoder_is_configured()) {
-		if (conf_now->m_sensor_port_mode == SENSOR_PORT_MODE_TS5700N8501_MULTITURN) {
-			angle_now = encoder_read_deg_multiturn();
-		} else {
-			angle_now = enc_ang;
-		}
+		angle_now = enc_ang;
+		// if (conf_now->m_sensor_port_mode == SENSOR_PORT_MODE_TS5700N8501_MULTITURN) {
+		// 	angle_now = encoder_read_deg_multiturn();
+		// } else {
+		// 	angle_now = enc_ang;
+		// }
 	} else {
 		angle_now = RAD2DEG_f(motor_now->m_motor_state.phase);
 	}
 
-	utils_norm_angle(&angle_now);
+	//utils_norm_angle(&angle_now);
 
 	if (conf_now->p_pid_ang_div > 0.98 && conf_now->p_pid_ang_div < 1.02) {
 		motor_now->m_pos_pid_now = angle_now;
@@ -4337,7 +4338,7 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	}
 
 	// Compute parameters
-	float error = utils_angle_difference(angle_set, angle_now);
+	float error = angle_set - angle_now; //utils_angle_difference(angle_set, angle_now);
 	float error_sign = 1.0;
 
 	if (encoder_is_configured()) {

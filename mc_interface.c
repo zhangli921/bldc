@@ -704,7 +704,7 @@ void mc_interface_set_pid_pos(float pos) {
 		}
 	}
 
-	utils_norm_angle(&pos);
+	//utils_norm_angle(&pos);
 
 	switch (conf->motor_type) {
 	case MOTOR_TYPE_BLDC:
@@ -1416,7 +1416,7 @@ float mc_interface_get_pid_pos_now(void) {
 
 	ret *= DIR_MULT;
 	ret -= motor_now()->m_conf.p_pid_offset;
-	utils_norm_angle(&ret);
+	//utils_norm_angle(&ret);
 
 	return ret;
 }
@@ -1429,7 +1429,7 @@ void mc_interface_update_pid_pos_offset(float angle_now, bool store) {
 	*mcconf = *mc_interface_get_configuration();
 
 	mcconf->p_pid_offset += mc_interface_get_pid_pos_now() - angle_now;
-	utils_norm_angle(&mcconf->p_pid_offset);
+	//utils_norm_angle(&mcconf->p_pid_offset);
 
 	if (store) {
 		conf_general_store_mc_configuration(mcconf, mc_interface_get_motor_thread() == 2);
