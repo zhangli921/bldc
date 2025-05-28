@@ -4409,18 +4409,53 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	motor->m_pos_prev_proc = angle_now;
 
 	// Calculate output
-	float output = p_term + motor->m_pos_i_term + d_term + d_term_proc;
-	utils_truncate_number(&output, -1.0, 1.0);
+	float p_output = p_term + motor->m_pos_i_term + d_term + d_term_proc;
+	utils_truncate_number(&p_output, -1.0, 1.0);
 
 	if (encoder_is_configured()) {
 		if (encoder_index_found()) {
-			motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+			//motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;
+			p_output *= 5000;
+
+			float p_term;
+			float d_term;
+
+			const float rpm = mcpwm_foc_get_rpm();
+			float error = p_output - rpm;			
+
+			// Compute parameters
+			p_term = error * conf_now->s_pid_kp * (1.0 / 20.0);
+			d_term = (error - motor->m_speed_prev_error) * (conf_now->s_pid_kd / dt) * (1.0 / 20.0);
+
+			// Filter D
+			UTILS_LP_FAST(motor->m_speed_d_filter, d_term, conf_now->s_pid_kd_filter);
+			d_term = motor->m_speed_d_filter;
+
+			// Store previous error
+			motor->m_speed_prev_error = error;
+
+			// Calculate output
+			utils_truncate_number_abs(&p_term, 1.0);
+			utils_truncate_number_abs(&d_term, 1.0);
+			float v_output = p_term + motor->m_speed_i_term + d_term;
+			float pre_output = v_output;
+			utils_truncate_number_abs(&v_output, 1.0);
+
+			float output_saturation = v_output - pre_output;
+
+			motor->m_speed_i_term += error * (conf_now->s_pid_ki * dt) * (1.0 / 20.0) + output_saturation;
+			if (conf_now->s_pid_ki < 1e-9) {
+				motor->m_speed_i_term = 0.0;
+			}			
+
+			motor->m_iq_set = v_output * conf_now->l_current_max * conf_now->l_current_max_scale;
+
 		} else {
 			// Rotate the motor with 40 % power until the encoder index is found.
-			motor->m_iq_set = 0.4 * conf_now->l_current_max * conf_now->l_current_max_scale;;
+			motor->m_iq_set = 0.4 * conf_now->l_current_max * conf_now->l_current_max_scale;
 		}
 	} else {
-		motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+		motor->m_iq_set = p_output * conf_now->l_current_max * conf_now->l_current_max_scale;
 	}
 }
 

@@ -185,7 +185,9 @@ static uint8_t AS504x_spi_transfer_err_check(uint16_t *in_buf, const uint16_t *o
 static uint32_t AS504x_data_last_invalid_counter = 0;
 #endif
 
-static volatile uint32_t mhm_mt_val = 0;
+static volatile int32_t mhm_mt_val = 0;
+static volatile int32_t st_val_previous = 0; //zhang li
+static volatile int32_t mt_val_accumulate = 0; //zhang li
 static volatile bool mhm_reset_multiturn = false;
 static void mhm_spi_transfer(uint8_t *data_tx, uint8_t *data_rx, uint8_t datasize);
 // ic-MHM
@@ -273,7 +275,7 @@ void encoder_ts57n8501_reset_multiturn(void) {
 	ts5700n8501_reset_multiturn = true;
 }
 
-uint32_t encoder_mhm_get_abm(void) {
+int32_t encoder_mhm_get_abm(void) {
 	return mhm_mt_val;
 }
 
@@ -604,8 +606,8 @@ float encoder_read_deg(void) {
 
 	switch (mode) {
 	case ENCODER_MODE_ABI:
-		angle = ((float)HW_ENC_TIM->CNT * 360.0) / (float)enc_counts;
-		break;
+	//	angle = ((float)HW_ENC_TIM->CNT * 360.0) / (float)enc_counts;
+	//	break;
 
 	case ENCODER_MODE_AS5047P_SPI:
 	case ENCODER_MODE_MT6816_SPI:
@@ -871,17 +873,28 @@ void encoder_tim_isr(void) {
 		mhm_mt_val = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
 		if (mhm_mt_val > 8388608) {
 			mhm_mt_val -= 16777216;			
-		}		
+		}				
 		
 		//单圈位置
 		uint16_t st_val = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
 		st_val >>= 4;	
 
-		spi_val = st_val;
+		spi_val = st_val;		
 
 		last_enc_angle = mhm_mt_val * 360 + ((float)st_val * 360.0) / 4096.0;
+		//last_enc_angle = mhm_mt_val; //((float)st_val * 360.0) / 4096.0;
 		UTILS_LP_FAST(spi_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
 		UTILS_LP_FAST(encoder_no_magnet_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
+
+		//测试代码 ******************
+		if(st_val_previous < 500 && st_val > 3596) {
+			mt_val_accumulate--;
+		}else if(st_val_previous > 3596 && st_val < 500) {
+			mt_val_accumulate++;
+		}
+		st_val_previous = st_val;
+		last_enc_angle = mt_val_accumulate * 360 + ((float)st_val * 360.0) / 4096.0;
+
 	}
 }
 #else
