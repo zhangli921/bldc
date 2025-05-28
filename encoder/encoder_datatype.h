@@ -105,7 +105,7 @@ typedef struct {
 	uint32_t spi_error_cnt;
 	uint32_t spi_val;
 	uint32_t last_update_time;
-	uint32_t mt_val;
+	int32_t mt_val;
 	bool reset_multiturn;
 } ICMHM_state;
 

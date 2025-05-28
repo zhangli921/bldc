@@ -33,7 +33,7 @@ void enc_icmhm_routine(ICMHM_config_t *cfg);
 #define ICMHM_LAST_ANGLE(cfg)		((cfg)->state.last_enc_angle)
 
 
-inline uint32_t enc_icmhm_get_abm(ICMHM_config_t *cfg) {
+inline int32_t enc_icmhm_get_abm(ICMHM_config_t *cfg) {
 	return cfg->state.mt_val;
 }
 

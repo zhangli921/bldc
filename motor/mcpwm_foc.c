@@ -3635,7 +3635,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 		angle_now = RAD2DEG_f(motor_now->m_motor_state.phase);
 	}
 
-	utils_norm_angle(&angle_now);
+	//utils_norm_angle(&angle_now);
 
 	if (conf_now->p_pid_ang_div > 0.98 && conf_now->p_pid_ang_div < 1.02) {
 		motor_now->m_pos_pid_now = angle_now;

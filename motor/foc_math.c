@@ -397,7 +397,8 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	}
 
 	// Compute parameters
-	float error = utils_angle_difference(angle_set, angle_now);
+	//float error = utils_angle_difference(angle_set, angle_now);
+	float error = angle_set - angle_now;
 	float error_sign = 1.0;
 
 	if (conf_now->m_sensor_port_mode != SENSOR_PORT_MODE_HALL) {

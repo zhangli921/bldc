@@ -36,6 +36,9 @@
 #undef HW_SPI_DEV
 //#define MT6816_NO_MAGNET_ERROR_MASK		0x0002
 
+static volatile int32_t st_val_previous = 0; //zhang li
+static volatile int32_t mt_val_accumulate = 0; //zhang li
+
 static ICMHM_config_t *s_cfg;
 static void mhm_spi_transfer(uint8_t *data_tx, uint8_t *data_rx, uint8_t datasize);
 // ic-MHM
@@ -160,14 +163,30 @@ void enc_icmhm_routine(ICMHM_config_t *cfg) {
 		//	abs_spi_dma_rx_[2], abs_spi_dma_rx_[3], abs_spi_dma_rx_[4], abs_spi_dma_rx_[5]);
 
 		cfg->state.mt_val = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
+		if (cfg->state.mt_val > 8388608) {
+			cfg->state.mt_val -= 16777216;			
+		}	
+
 		uint16_t angle = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
 		angle >>= 4;
 		pos = angle;
 		cfg->state.spi_val = pos;
 
-		cfg->state.last_enc_angle = ((float)pos * 360.0) / 4096.0;
+		cfg->state.last_enc_angle = cfg->state.mt_val * 360.00 + ((float)pos * 360.0) / 4096.0;
 		UTILS_LP_FAST(cfg->state.spi_error_rate, 0.0, timestep);
 		UTILS_LP_FAST(cfg->state.encoder_no_magnet_error_rate, 0.0, timestep);
+
+		//测试代码开始 ******************
+
+		if(st_val_previous < 500 && pos > 3596) {
+			mt_val_accumulate--;
+		}else if(st_val_previous > 3596 && pos < 500) {
+			mt_val_accumulate++;
+		}
+		st_val_previous = pos;
+		cfg->state.last_enc_angle = mt_val_accumulate * 360 + ((float)pos * 360.0) / 4096.0;
+		
+		//测试代码结束 ******************
 	}
 }
 
