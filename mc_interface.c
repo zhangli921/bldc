@@ -1429,7 +1429,7 @@ void mc_interface_update_pid_pos_offset(float angle_now, bool store) {
 	*mcconf = *mc_interface_get_configuration();
 
 	mcconf->p_pid_offset += mc_interface_get_pid_pos_now() - angle_now;
-	//utils_norm_angle(&mcconf->p_pid_offset);
+	utils_norm_angle(&mcconf->p_pid_offset);
 
 	if (store) {
 		conf_general_store_mc_configuration(mcconf, mc_interface_get_motor_thread() == 2);
