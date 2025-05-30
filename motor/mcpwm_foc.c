@@ -4211,8 +4211,11 @@ static THD_FUNCTION(pid_thread, arg) {
 		last_time = timer_time_now();
 
 		bool index_found = encoder_index_found();
-		foc_run_pid_control_pos(index_found, dt, (motor_all_state_t*)&m_motor_1);
-		foc_run_pid_control_speed(index_found, dt, (motor_all_state_t*)&m_motor_1);
+		if(m_motor_1.m_control_mode == CONTROL_MODE_POS) {
+			foc_run_pid_control_pos(index_found, dt, (motor_all_state_t*)&m_motor_1);
+		}else if(m_motor_1.m_control_mode == CONTROL_MODE_SPEED) {
+			foc_run_pid_control_speed(index_found, dt, (motor_all_state_t*)&m_motor_1);
+		}
 #ifdef HW_HAS_DUAL_MOTORS
 		foc_run_pid_control_pos(index_found, dt, (motor_all_state_t*)&m_motor_2);
 		foc_run_pid_control_speed(index_found, dt, (motor_all_state_t*)&m_motor_2);

@@ -387,14 +387,14 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	float d_term_proc;
 
 	// PID is off. Return.
-	if (motor->m_control_mode != CONTROL_MODE_POS) {
-		motor->m_pos_i_term = 0;
-		motor->m_pos_prev_error = 0;
-		motor->m_pos_prev_proc = angle_now;
-		motor->m_pos_d_filter = 0.0;
-		motor->m_pos_d_filter_proc = 0.0;
-		return;
-	}
+	// if (motor->m_control_mode != CONTROL_MODE_POS) {
+	// 	motor->m_pos_i_term = 0;
+	// 	motor->m_pos_prev_error = 0;
+	// 	motor->m_pos_prev_proc = angle_now;
+	// 	motor->m_pos_d_filter = 0.0;
+	// 	motor->m_pos_d_filter_proc = 0.0;
+	// 	return;
+	// }
 
 	// Compute parameters
 	//float error = utils_angle_difference(angle_set, angle_now);
@@ -451,7 +451,8 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	if (angle_now == motor->m_pos_prev_proc) {
 		d_term_proc = 0.0;
 	} else {
-		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		// d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		d_term_proc = -(angle_now - motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
 		motor->m_pos_dt_int_proc = 0.0;
 	}
 
@@ -474,7 +475,9 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 
 	if (conf_now->m_sensor_port_mode != SENSOR_PORT_MODE_HALL) {
 		if (index_found) {
-			motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+			//motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+			motor->m_speed_pid_set_rpm = output *= 5000;
+			foc_run_pid_control_speed(index_found, dt, motor);
 		} else {
 			// Rotate the motor with 40 % power until the encoder index is found.
 			motor->m_iq_set = 0.4 * conf_now->l_current_max * conf_now->l_current_max_scale;;
@@ -490,12 +493,12 @@ void foc_run_pid_control_speed(bool index_found, float dt, motor_all_state_t *mo
 	float d_term;
 
 	// PID is off. Return.
-	if (motor->m_control_mode != CONTROL_MODE_SPEED) {
-		motor->m_speed_i_term = 0.0;
-		motor->m_speed_prev_error = 0.0;
-		motor->m_speed_d_filter = 0.0;
-		return;
-	}
+	// if (motor->m_control_mode != CONTROL_MODE_SPEED) {
+	// 	motor->m_speed_i_term = 0.0;
+	// 	motor->m_speed_prev_error = 0.0;
+	// 	motor->m_speed_d_filter = 0.0;
+	// 	return;
+	// }
 
 	if (conf_now->s_pid_ramp_erpms_s > 0.0) {
 		utils_step_towards((float*)&motor->m_speed_pid_set_rpm, motor->m_speed_command_rpm, conf_now->s_pid_ramp_erpms_s * dt);
