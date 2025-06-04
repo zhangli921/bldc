@@ -111,6 +111,9 @@ static uint32_t resolver_loss_of_signal_error_cnt = 0;
 static uint32_t AS504x_spi_communication_error_count = 0;
 static AS504x_diag AS504x_sensor_diag = {0};
 
+static int32_t mt_val_accumulate = 0; //zhang li
+static uint32_t st_val_previous = 0; //zhang li
+
 static float sin_gain = 0.0;
 static float sin_offset = 0.0;
 static float cos_gain = 0.0;
@@ -874,9 +877,35 @@ void encoder_tim_isr(void) {
 		pos = angle;
 		spi_val = pos;
 
-		last_enc_angle = ((float)pos * 360.0) / 4096.0;
+		last_enc_angle = mhm_mt_val; //((float)pos * 360.0) / 4096.0;
 		UTILS_LP_FAST(spi_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
 		UTILS_LP_FAST(encoder_no_magnet_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
+
+		//多圈圈数
+		mhm_mt_val = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
+		if (mhm_mt_val > 8388608) {
+			mhm_mt_val -= 16777216;			
+		}				
+		
+		//单圈位置
+		uint16_t st_val = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
+		st_val >>= 4;	
+
+		spi_val = st_val;		
+
+		last_enc_angle = mhm_mt_val * 360 + ((float)st_val * 360.0) / 4096.0;
+		//last_enc_angle = mhm_mt_val; //((float)st_val * 360.0) / 4096.0;
+		UTILS_LP_FAST(spi_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
+		UTILS_LP_FAST(encoder_no_magnet_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
+
+		//测试代码 ******************
+		if(st_val_previous < 500 && st_val > 3596) {
+			mt_val_accumulate--;
+		}else if(st_val_previous > 3596 && st_val < 500) {
+			mt_val_accumulate++;
+		}
+		st_val_previous = st_val;
+		last_enc_angle = mt_val_accumulate * 360 + ((float)st_val * 360.0) / 4096.0;
 	}
 }
 #else

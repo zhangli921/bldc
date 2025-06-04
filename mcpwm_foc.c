@@ -4337,7 +4337,8 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	}
 
 	// Compute parameters
-	float error = utils_angle_difference(angle_set, angle_now);
+	//float error = utils_angle_difference(angle_set, angle_now);
+	float error = angle_set - angle_now;
 	float error_sign = 1.0;
 
 	if (encoder_is_configured()) {
@@ -4390,7 +4391,8 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	if (angle_now == motor->m_pos_prev_proc) {
 		d_term_proc = 0.0;
 	} else {
-		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		// d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		d_term_proc = -(angle_now - motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
 		motor->m_pos_dt_int_proc = 0.0;
 	}
 
