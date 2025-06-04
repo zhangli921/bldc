@@ -871,16 +871,6 @@ void encoder_tim_isr(void) {
 		//commands_printf("@MHM %02x %02x %02x %02x %02x %02x\r\n", abs_spi_dma_rx_[0], abs_spi_dma_rx_[1],
 		//	abs_spi_dma_rx_[2], abs_spi_dma_rx_[3], abs_spi_dma_rx_[4], abs_spi_dma_rx_[5]);
 
-		mhm_mt_val = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
-		uint16_t angle = (abs_spi_dma_rx_[4] << 8) | (abs_spi_dma_rx_[5] << 0);
-		angle >>= 4;
-		pos = angle;
-		spi_val = pos;
-
-		last_enc_angle = mhm_mt_val; //((float)pos * 360.0) / 4096.0;
-		UTILS_LP_FAST(spi_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
-		UTILS_LP_FAST(encoder_no_magnet_error_rate, 0.0, 1./MT6816_SAMPLE_RATE_HZ);
-
 		//多圈圈数
 		mhm_mt_val = ((abs_spi_dma_rx_[1] << 16) | (abs_spi_dma_rx_[2] << 8) | (abs_spi_dma_rx_[3] << 0));
 		if (mhm_mt_val > 8388608) {
