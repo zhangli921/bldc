@@ -4338,6 +4338,7 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 
 	// Compute parameters
 	float error = utils_angle_difference(angle_set, angle_now);
+	// float error = angle_set - angle_now;
 	float error_sign = 1.0;
 
 	if (encoder_is_configured()) {
