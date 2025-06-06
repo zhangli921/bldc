@@ -904,7 +904,7 @@ void encoder_tim_isr(void) {
 			mt_val_accumulate++;
 		}
 		st_val_previous = st_val;
-		last_enc_angle = mt_val_accumulate * 360 + 360 - ((float)st_val * 360.0) / 4096.0;
+		last_enc_angle = mt_val_accumulate * 360 + ((float)st_val * 360.0) / 4096.0;
 		// last_enc_angle = 360 - ((float)st_val * 360.0) / 4096.0;
 	}
 }
