@@ -1,3 +1,6 @@
+st-flash --reset write BLDC_4_ChibiOS.bin 0x8000000
+
+
 # VESC firmware
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)

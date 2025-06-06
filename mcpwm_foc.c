@@ -3091,7 +3091,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 		angle_now = RAD2DEG_f(motor_now->m_motor_state.phase);
 	}
 
-	utils_norm_angle(&angle_now);
+	// utils_norm_angle(&angle_now);
 
 	if (conf_now->p_pid_ang_div > 0.98 && conf_now->p_pid_ang_div < 1.02) {
 		motor_now->m_pos_pid_now = angle_now;
@@ -4316,6 +4316,114 @@ static void svm(float alpha, float beta, uint32_t PWMFullDutyCycle,
 	*svm_sector = sector;
 }
 
+// static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
+// 	volatile mc_configuration *conf_now = motor->m_conf;
+
+// 	float angle_now = motor->m_pos_pid_now;
+// 	float angle_set = motor->m_pos_pid_set;
+
+// 	float p_term;
+// 	float d_term;
+// 	float d_term_proc;
+
+// 	// PID is off. Return.
+// 	if (motor->m_control_mode != CONTROL_MODE_POS) {
+// 		motor->m_pos_i_term = 0;
+// 		motor->m_pos_prev_error = 0;
+// 		motor->m_pos_prev_proc = angle_now;
+// 		motor->m_pos_d_filter = 0.0;
+// 		motor->m_pos_d_filter_proc = 0.0;
+// 		return;
+// 	}
+
+// 	// Compute parameters
+// 	float error = utils_angle_difference(angle_set, angle_now);
+// 	// float error = angle_set - angle_now;
+// 	float error_sign = 1.0;
+
+// 	if (encoder_is_configured()) {
+// 		if (conf_now->foc_encoder_inverted) {
+// 			error_sign = -1.0;
+// 		}
+// 	}
+
+// 	error *= error_sign;
+
+// 	float kp = conf_now->p_pid_kp;
+// 	float ki = conf_now->p_pid_ki;
+// 	float kd = conf_now->p_pid_kd;
+// 	float kd_proc = conf_now->p_pid_kd_proc;
+
+// 	if (conf_now->p_pid_gain_dec_angle > 0.1) {
+// 		float min_error = conf_now->p_pid_gain_dec_angle / conf_now->p_pid_ang_div;
+// 		float error_abs = fabs(error);
+
+// 		if (error_abs < min_error) {
+// 			float scale = error_abs / min_error;
+// 			kp *= scale;
+// 			ki *= scale;
+// 			kd *= scale;
+// 			kd_proc *= scale;
+// 		}
+// 	}
+
+// 	p_term = error * kp;
+// 	motor->m_pos_i_term += error * (ki * dt);
+
+// 	// Average DT for the D term when the error does not change. This likely
+// 	// happens at low speed when the position resolution is low and several
+// 	// control iterations run without position updates.
+// 	// TODO: Are there problems with this approach?
+// 	motor->m_pos_dt_int += dt;
+// 	if (error == motor->m_pos_prev_error) {
+// 		d_term = 0.0;
+// 	} else {
+// 		d_term = (error - motor->m_pos_prev_error) * (kd / motor->m_pos_dt_int);
+// 		motor->m_pos_dt_int = 0.0;
+// 	}
+
+// 	// Filter D
+// 	UTILS_LP_FAST(motor->m_pos_d_filter, d_term, conf_now->p_pid_kd_filter);
+// 	d_term = motor->m_pos_d_filter;
+
+// 	// Process D term
+// 	motor->m_pos_dt_int_proc += dt;
+// 	if (angle_now == motor->m_pos_prev_proc) {
+// 		d_term_proc = 0.0;
+// 	} else {
+// 		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+// 		motor->m_pos_dt_int_proc = 0.0;
+// 	}
+
+// 	// Filter D process
+// 	UTILS_LP_FAST(motor->m_pos_d_filter_proc, d_term_proc, conf_now->p_pid_kd_filter);
+// 	d_term_proc = motor->m_pos_d_filter_proc;
+
+// 	// I-term wind-up protection
+// 	float p_tmp = p_term;
+// 	utils_truncate_number_abs(&p_tmp, 1.0);
+// 	utils_truncate_number_abs((float*)&motor->m_pos_i_term, 1.0 - fabsf(p_tmp));
+
+// 	// Store previous error
+// 	motor->m_pos_prev_error = error;
+// 	motor->m_pos_prev_proc = angle_now;
+
+// 	// Calculate output
+// 	float output = p_term + motor->m_pos_i_term + d_term + d_term_proc;
+// 	utils_truncate_number(&output, -1.0, 1.0);
+
+// 	if (encoder_is_configured()) {
+// 		if (encoder_index_found()) {
+// 			motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+// 		} else {
+// 			// Rotate the motor with 40 % power until the encoder index is found.
+// 			motor->m_iq_set = 0.4 * conf_now->l_current_max * conf_now->l_current_max_scale;;
+// 		}
+// 	} else {
+// 		motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+// 	}
+// }
+
 static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	volatile mc_configuration *conf_now = motor->m_conf;
 
@@ -4337,8 +4445,8 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	}
 
 	// Compute parameters
-	float error = utils_angle_difference(angle_set, angle_now);
-	// float error = angle_set - angle_now;
+	// float error = utils_angle_difference(angle_set, angle_now);
+	float error = angle_set - angle_now;
 	float error_sign = 1.0;
 
 	if (encoder_is_configured()) {
@@ -4409,18 +4517,72 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	motor->m_pos_prev_proc = angle_now;
 
 	// Calculate output
-	float output = p_term + motor->m_pos_i_term + d_term + d_term_proc;
-	utils_truncate_number(&output, -1.0, 1.0);
+	float pos_output = p_term + motor->m_pos_i_term + d_term + d_term_proc;	
 
 	if (encoder_is_configured()) {
 		if (encoder_index_found()) {
-			motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+			//motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+			// if (conf_now->s_pid_ramp_erpms_s > 0.0) {
+			// 	utils_step_towards((float*)&pos_output, 10000, conf_now->s_pid_ramp_erpms_s * dt);
+			// }
+
+			utils_truncate_number(&pos_output, -1.0, 1.0);
+			pos_output *= 5000;
+
+			const float rpm = mcpwm_foc_get_rpm();
+			error = pos_output - rpm;
+
+			// Too low RPM set. Reset state and return.
+			// if (fabsf(pos_output) < conf_now->s_pid_min_erpm) {
+			// 	motor->m_speed_i_term = 0.0;
+			// 	motor->m_speed_prev_error = error;
+			// 	return;
+			// }
+
+			// Compute parameters
+			p_term = error * conf_now->s_pid_kp * (1.0 / 20.0);
+			d_term = (error - motor->m_speed_prev_error) * (conf_now->s_pid_kd / dt) * (1.0 / 20.0);
+
+			// Filter D
+			UTILS_LP_FAST(motor->m_speed_d_filter, d_term, conf_now->s_pid_kd_filter);
+			d_term = motor->m_speed_d_filter;
+
+			// Store previous error
+			motor->m_speed_prev_error = error;
+
+			// Calculate output
+			utils_truncate_number_abs(&p_term, 1.0);
+			utils_truncate_number_abs(&d_term, 1.0);
+			float vel_output = p_term + motor->m_speed_i_term + d_term;
+			float pre_vel_output = vel_output;
+			utils_truncate_number_abs(&vel_output, 1.0);
+
+			float vel_output_saturation = vel_output - pre_vel_output;
+
+			motor->m_speed_i_term += error * (conf_now->s_pid_ki * dt) * (1.0 / 20.0) + vel_output_saturation;
+			if (conf_now->s_pid_ki < 1e-9) {
+				motor->m_speed_i_term = 0.0;
+			}
+
+			// Optionally disable braking
+			// if (!conf_now->s_pid_allow_braking) {
+			// 	if (rpm > 20.0 && vel_output < 0.0) {
+			// 		vel_output = 0.0;
+			// 	}
+
+			// 	if (rpm < -20.0 && vel_output > 0.0) {
+			// 		vel_output = 0.0;
+			// 	}
+			// }
+
+			motor->m_iq_set = vel_output * conf_now->l_current_max * conf_now->l_current_max_scale;
 		} else {
-			// Rotate the motor with 40 % power until the encoder index is found.
+			// Rotate the motor with 40 % power until the encoder index is found.			
 			motor->m_iq_set = 0.4 * conf_now->l_current_max * conf_now->l_current_max_scale;;
 		}
 	} else {
-		motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+		utils_truncate_number(&pos_output, -1.0, 1.0);
+		motor->m_iq_set = pos_output * conf_now->l_current_max * conf_now->l_current_max_scale;;
 	}
 }
 
