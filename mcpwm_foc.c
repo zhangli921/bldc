@@ -4499,7 +4499,8 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 	if (angle_now == motor->m_pos_prev_proc) {
 		d_term_proc = 0.0;
 	} else {
-		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		// d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		d_term_proc = -(angle_now - motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
 		motor->m_pos_dt_int_proc = 0.0;
 	}
 
@@ -4518,16 +4519,22 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 
 	// Calculate output
 	float pos_output = p_term + motor->m_pos_i_term + d_term + d_term_proc;	
+	utils_truncate_number(&pos_output, -1.0, 1.0);
 
 	if (encoder_is_configured()) {
-		if (encoder_index_found()) {
-			//motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
+		if (encoder_index_found()) {		
+			pos_output *= conf_now->l_max_erpm;
+			// float vel_command = pos_output * conf_now->l_current_max * conf_now->l_current_max_scale;
+			
+			// const float rpm = mcpwm_foc_get_rpm();
+			
+			// float vel_set = rpm;			
 			// if (conf_now->s_pid_ramp_erpms_s > 0.0) {
-			// 	utils_step_towards((float*)&pos_output, 10000, conf_now->s_pid_ramp_erpms_s * dt);
+			// 	utils_step_towards((float*)&vel_set, vel_command, conf_now->s_pid_ramp_erpms_s * dt);
 			// }
 
-			utils_truncate_number(&pos_output, -1.0, 1.0);
-			pos_output *= 5000;
+			// utils_truncate_number(&pos_output, -1.0, 1.0);
+			// pos_output *= 5000;
 
 			const float rpm = mcpwm_foc_get_rpm();
 			error = pos_output - rpm;
@@ -4581,7 +4588,7 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 			motor->m_iq_set = 0.4 * conf_now->l_current_max * conf_now->l_current_max_scale;;
 		}
 	} else {
-		utils_truncate_number(&pos_output, -1.0, 1.0);
+		// utils_truncate_number(&pos_output, -1.0, 1.0);
 		motor->m_iq_set = pos_output * conf_now->l_current_max * conf_now->l_current_max_scale;;
 	}
 }
