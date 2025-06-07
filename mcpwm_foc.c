@@ -4536,7 +4536,7 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 			// utils_truncate_number(&pos_output, -1.0, 1.0);
 			// pos_output *= 5000;
 
-			const float rpm = mcpwm_foc_get_rpm();
+			const float rpm = mcpwm_foc_get_rpm_faster();
 			error = pos_output - rpm;
 
 			// Too low RPM set. Reset state and return.
