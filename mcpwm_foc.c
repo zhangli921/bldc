@@ -4571,17 +4571,6 @@ static void run_pid_control_pos(float dt, volatile motor_all_state_t *motor) {
 				motor->m_speed_i_term = 0.0;
 			}
 
-			// Optionally disable braking
-			// if (!conf_now->s_pid_allow_braking) {
-			// 	if (rpm > 20.0 && vel_output < 0.0) {
-			// 		vel_output = 0.0;
-			// 	}
-
-			// 	if (rpm < -20.0 && vel_output > 0.0) {
-			// 		vel_output = 0.0;
-			// 	}
-			// }
-
 			motor->m_iq_set = vel_output * conf_now->l_current_max * conf_now->l_current_max_scale;
 		} else {
 			// Rotate the motor with 40 % power until the encoder index is found.			
